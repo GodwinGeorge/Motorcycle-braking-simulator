@@ -74,7 +74,7 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime) {
         if (elapsed < stoppingTime) {
             requestAnimationFrame(animationFrame);
         } else {
-            status.textContent = "Vehicle stopped 🛑";
+            status.textContent = "Motorcycle stopped 🛑";
         }
     }
 
