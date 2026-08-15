@@ -2,5 +2,7 @@ name = "vehicle-braking-worker"
 main = "workers/simulate/index.js"
 type = "javascript"
 
+compatibility_date = "2026-08-15"
+
 # Replace with your Cloudflare account id when deploying or set CF_ACCOUNT_ID secret in GitHub Actions
 account_id = "0ef86fe4cf8084b2e53f1fca6831689d"
