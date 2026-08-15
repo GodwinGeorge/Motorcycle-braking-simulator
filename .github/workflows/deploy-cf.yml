@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'false'
 
       - name: Install wrangler
         run: npm install -g wrangler
@@ -17,4 +19,4 @@ jobs:
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: |
-          wrangler publish --name vehicle-braking-worker
+          wrangler publish
