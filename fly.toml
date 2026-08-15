@@ -1,0 +1,7 @@
+app = "vehicle-braking-simulator"
+
+[build]
+  image = "ghcr.io/OWNER/vehicle-braking-simulator:latest"
+
+[env]
+  PORT = "18080"
