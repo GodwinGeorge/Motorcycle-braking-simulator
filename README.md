@@ -1,13 +1,248 @@
-Motorcycle Braking Simulator
-===========================
+🏍️ Motorcycle Braking Simulator 🖥️ 
 
-Simple static frontend that calls a deployed Cloudflare Worker to perform motorcycle braking simulations.
-
-Key points
-- Frontend: static files located in `web/`, published to the `gh-pages` branch for GitHub Pages.
-- Backend: the simulation API is provided by a Cloudflare Worker at:
-
-	https://godwingeorge.github.io/vehicle-braking-simulator/
+A web-based vehicle braking simulator that calculates braking force, deceleration, stopping time, and stopping distance using a physics-based longitudinal braking model.
 
 
 
+---
+
+🌐 Live Demo
+
+Web Application:
+https://godwingeorge.github.io/vehicle-braking-simulator/
+
+
+
+---
+
+✨ Features
+
+- C++ implementation using the Crow HTTP framework
+- REST API interface
+- Browser-based user interface
+- Cloudflare Worker API implementation
+- GitHub-based project and deployment workflow
+
+---
+
+🧠 Physics Model
+
+The simulator currently uses a simplified longitudinal braking model.
+
+Maximum tyre-road braking force
+
+The maximum available braking force is calculated using:
+
+[
+F_{max} = \mu m g
+]
+
+where:
+
+- F_{max} = maximum available braking force
+- \mu = coefficient of friction
+- m = vehicle mass
+- g = gravitational acceleration
+
+The actual braking force is limited by the available tyre-road friction:
+
+[
+F_{actual} = \min(F_{brake}, F_{max})
+]
+
+Vehicle deceleration
+
+Using Newton's second law:
+
+[
+a = \frac{F_{actual}}{m}
+]
+
+During braking, the acceleration is negative:
+
+[
+a = -\frac{F_{actual}}{m}
+]
+
+Stopping time
+
+For constant deceleration:
+
+[
+t = \frac{v_0}{|a|}
+]
+
+Stopping distance
+
+[
+d = \frac{v_0^2}{2|a|}
+]
+
+where:
+
+- v_0 = initial velocity
+- a = braking deceleration
+- t = stopping time
+- d = stopping distance
+
+---
+
+🏗️ System Architecture
+
+                    ┌─────────────────────┐
+                    │      Web Browser    │
+                    │                     │
+                    │ HTML + CSS + JS     │
+                    └──────────┬──────────┘
+                               │
+                               │ POST /simulate
+                               ▼
+                    ┌─────────────────────┐
+                    │   Simulation API    │
+                    │                     │
+                    │ Cloudflare Worker   │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   Braking Model     │
+                    │                     │
+                    │ Friction            │
+                    │ Brake Force         │
+                    │ Deceleration        │
+                    │ Stopping Distance   │
+                    └─────────────────────┘
+
+The repository also contains a C++ implementation using Crow, which can be used as a local backend.
+
+---
+
+📁 Project Structure
+
+vehicle-braking-simulator/
+│
+├── src/
+│   ├── VehicleModel.cpp
+│   └── VehicleModel.h
+│
+├── web/
+│   ├── index.html
+│   ├── scripts.js
+│   └── style.css
+│
+├── workers/
+│   └── simulate/
+│       └── index.js
+│
+├── cpp_server.cpp
+├── CMakeLists.txt
+├── README.md
+└── ...
+
+"src/"
+
+Contains the vehicle/braking physics implementation.
+
+"cpp_server.cpp"
+
+Implements the local HTTP server using Crow and exposes the simulation through a REST endpoint.
+
+"web/"
+
+Contains the browser-based frontend.
+
+"workers/"
+
+Contains the Cloudflare Worker implementation used for the hosted API.
+
+---
+
+🚀 Running Locally
+
+1. Clone the repository
+
+git clone https://github.com/GodwinGeorge/vehicle-braking-simulator.git
+
+cd vehicle-braking-simulator
+
+---
+
+2. Build the C++ backend
+
+The C++ backend uses:
+
+- C++
+- Crow
+- Asio
+- CMake
+
+Configure and build the project using your installed C++ toolchain.
+
+Example:
+
+mkdir build
+cd build
+
+cmake ..
+cmake --build .
+
+Run the generated server executable.
+
+The server exposes the simulation API through:
+
+POST /simulate
+
+---
+
+🔌 API
+
+"POST /simulate"
+
+Calculates braking performance for the supplied vehicle parameters.
+
+Request
+
+{
+  "mass": 1500,
+  "initialSpeed": 100,
+  "frictionCoefficient": 0.7,
+  "brakeForce": 10000
+}
+
+Response
+
+{
+  "actualBrakeForce": 10000,
+  "deceleration": -6.6666666667,
+  "stoppingDistance": 57.8703703704,
+  "stoppingTime": 4.1666666667
+}
+
+
+
+🧪 Example
+
+For a vehicle with:
+
+Mass                  = 1500 kg
+Initial speed         = 100 km/h
+Friction coefficient  = 0.7
+Brake force           = 10000 N
+
+the simulator determines whether the requested braking force exceeds the available tyre-road friction.
+
+The final braking force is then used to calculate the vehicle's deceleration and stopping performance.
+
+---
+
+
+👨‍💻 Author
+
+Godwin George
+
+
+📜 License
+
+This project is intended for learning, experimentation, and personal knowledge improvemens.
+
+See the repository license for usage and distribution terms.
