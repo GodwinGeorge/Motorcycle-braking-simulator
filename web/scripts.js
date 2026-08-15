@@ -15,12 +15,23 @@ async function simulate() {
     const payload = { mass, speed: initialSpeedKmh, friction, brakeForce };
 
     try {
-        const endpoint = (location.protocol === 'file:') ? 'http://localhost:18080/simulate' : '/simulate';
-        const resp = await fetch(endpoint, {
+        const workerEndpoint = 'https://vehicle-braking-worker.godwin-veh-sim.workers.dev/simulate';
+        const localEndpoint = 'http://localhost:18080/simulate';
+        const opts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        });
+        };
+
+        // Prefer Cloudflare Worker; if it fails, fall back to local C++ server
+        let resp;
+        try {
+            resp = await fetch(workerEndpoint, opts);
+            if (!resp.ok) throw new Error('worker responded with ' + resp.status);
+        } catch (e) {
+            console.warn('Worker unreachable, falling back to local server:', e);
+            resp = await fetch(localEndpoint, opts);
+        }
 
         if (!resp.ok) {
             status.textContent = `Server error: ${resp.status}`;
