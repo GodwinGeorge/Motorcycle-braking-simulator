@@ -10,8 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install wrangler
+        run: npm install -g wrangler
+
       - name: Publish to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v1
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          args: publish --name vehicle-braking-worker
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          wrangler publish --name vehicle-braking-worker
