@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Vehicle Braking Simulator</title>
+    <title>Motorcycle Braking Simulator</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -12,8 +12,8 @@
 <body>
 
     <header>
-        <h1>🏍️ Vehicle Braking Simulator</h1>
-        <p>Vehicle Dynamics & Braking Analysis</p>
+        <h1>🏍️ Motorcycle Braking Simulator</h1>
+        <p>Motorcycle Dynamics & Braking Analysis</p>
     </header>
 
     <main>
@@ -24,11 +24,11 @@
             <h2>Simulation Parameters</h2>
 
             <div class="input-group">
-                <label for="mass">Vehicle Mass (kg)</label>
+                <label for="mass">Motorcycle Mass (kg)</label>
                 <input
                     type="number"
                     id="mass"
-                    value="1500"
+                    value="200"
                     min="1"
                 >
             </div>
@@ -60,7 +60,7 @@
                 <input
                     type="number"
                     id="brakeForce"
-                    value="15000"
+                    value="5000"
                     min="1"
                 >
             </div>
@@ -126,14 +126,7 @@
         </section>
 
 
-        <!-- GRAPH -->
-        <section class="panel">
-
-            <h2>Velocity vs Time</h2>
-
-            <canvas id="velocityGraph"></canvas>
-
-        </section>
+        <!-- Graph removed for motorcycle-only UI -->
 
     </main>
 
