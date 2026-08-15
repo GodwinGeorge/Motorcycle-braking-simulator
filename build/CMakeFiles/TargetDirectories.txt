@@ -1,4 +1,0 @@
-/home/godwin/vehicle-braking-simulator/build/CMakeFiles/vehicle_simulator.dir
-/home/godwin/vehicle-braking-simulator/build/CMakeFiles/cpp_server.dir
-/home/godwin/vehicle-braking-simulator/build/CMakeFiles/edit_cache.dir
-/home/godwin/vehicle-braking-simulator/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,20 @@
+# Build artifacts
+/build/
+
+# Python virtual environments
+/venv/
+env/
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+
+# Ignore compiled binaries
+/*.exe
+/*.out
+/*.o
