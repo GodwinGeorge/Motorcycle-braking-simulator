@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/vehicle_simulator.dir/link.d CMakeFiles/vehicle_simulator.dir/src/main.cpp.o CMakeFiles/vehicle_simulator.dir/src/VehicleModel.cpp.o -o vehicle_simulator
