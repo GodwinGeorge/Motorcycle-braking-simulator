@@ -9,7 +9,7 @@ A web-based vehicle braking simulator that calculates braking force, deceleratio
 🌐 Live Demo
 
 Web Application:
-https://godwingeorge.github.io/vehicle-braking-simulator/
+https://godwingeorge.github.io/Motorcycle-braking-simulator/
 
 
 
@@ -119,7 +119,7 @@ The repository also contains a C++ implementation using Crow, which can be used 
 
 📁 Project Structure
 
-vehicle-braking-simulator/
+Motorcycle-braking-simulator/
 │
 ├── src/
 │   ├── VehicleModel.cpp
@@ -141,7 +141,7 @@ vehicle-braking-simulator/
 
 "src/"
 
-Contains the vehicle/braking physics implementation.
+Contains the motorcycle/braking physics implementation.
 
 "cpp_server.cpp"
 
@@ -161,9 +161,9 @@ Contains the Cloudflare Worker implementation used for the hosted API.
 
 1. Clone the repository
 
-git clone https://github.com/GodwinGeorge/vehicle-braking-simulator.git
+git clone https://github.com/GodwinGeorge/Motorcycle-braking-simulator.git
 
-cd vehicle-braking-simulator
+cd Motorcycle-braking-simulator
 
 ---
 
