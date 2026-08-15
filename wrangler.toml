@@ -1,0 +1,6 @@
+name = "vehicle-braking-worker"
+main = "workers/simulate/index.js"
+type = "javascript"
+
+# Replace with your Cloudflare account id when deploying or set CF_ACCOUNT_ID secret in GitHub Actions
+account_id = "REPLACE_WITH_YOUR_ACCOUNT_ID"
