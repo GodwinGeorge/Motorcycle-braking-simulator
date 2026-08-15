@@ -15,7 +15,7 @@ async function simulate() {
     const payload = { mass, speed: initialSpeedKmh, friction, brakeForce };
 
     try {
-        const resp = await fetch('http://localhost:18080/simulate', {
+        const resp = await fetch('https://vehicle-braking-worker.godwin-veh-sim.workers.dev/simulate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
