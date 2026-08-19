@@ -28,7 +28,7 @@ Then open http://localhost:8000 in a browser.
 4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
 5. Review stopping time, distance, deceleration, and actual brake force in the result cards.
 
-The GUI sends simulation requests to the deployed Cloudflare Worker. An internet connection is required when using the hosted API.
+The GUI always sends simulation requests to the deployed Cloudflare Worker. An internet connection is required when using the hosted GUI. Running the static frontend locally is only a preview; it does not switch the GUI to the C++ backend.
 
 
 ## Publishing the GUI
@@ -157,6 +157,13 @@ Motorcycle-braking-simulator/
 ├── workers/
 │   └── simulate/
 │       └── index.js
+
+├── api/
+│   └── simulate.js
+
+├── netlify/
+│   └── functions/
+│       └── simulate.js
 │
 ├── cpp_server.cpp
 ├── CMakeLists.txt
@@ -178,6 +185,10 @@ Contains the browser-based frontend.
 "workers/"
 
 Contains the Cloudflare Worker implementation used for the hosted API.
+
+"api/" and "netlify/functions/"
+
+Contain compatible serverless adapters for deployments that use Vercel-style API routes or Netlify Functions. The production GitHub Pages GUI does not call these adapters; it calls the Cloudflare Worker directly.
 
 ---
 
