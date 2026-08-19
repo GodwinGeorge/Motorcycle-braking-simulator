@@ -6,22 +6,41 @@
 
     <title>Motorcycle Braking Simulator</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body data-road="city">
 
-    <header>
-        <h1>🏍️ Motorcycle Braking Simulator</h1>
-        <p>Motorcycle Dynamics & Braking Analysis</p>
+    <header class="site-header">
+        <div>
+            <p class="eyebrow">Godwin's lab</p>
+            <h1>Motorcycle braking simulator</h1>
+            <p class="header-copy">Read the road, feel the load, understand the stop.</p>
+        </div>
+        <div class="header-state"><span class="live-dot"></span>API connected</div>
     </header>
 
     <main>
 
         <!-- INPUT PANEL -->
-        <section class="panel">
+        <section class="panel controls-panel">
 
-            <h2>Simulation Parameters</h2>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Inputs</p>
+                    <h2>Set the ride</h2>
+                </div>
+                <span class="step-label">01 / 03</span>
+            </div>
+
+            <div class="preset-row" aria-label="Simulation presets">
+                <button class="preset is-active" type="button" data-preset="city">City ride</button>
+                <button class="preset" type="button" data-preset="wet">Wet road</button>
+                <button class="preset" type="button" data-preset="track">Track day</button>
+            </div>
 
             <div class="input-group">
                 <label for="mass">Motorcycle Mass (kg)</label>
@@ -65,8 +84,8 @@
                 >
             </div>
 
-            <button id="simulateButton">
-                SIMULATE
+            <button id="simulateButton" class="primary-button" type="button">
+                <span>Run simulation</span><span aria-hidden="true">&#8594;</span>
             </button>
 
         </section>
@@ -75,22 +94,85 @@
         <!-- SIMULATION -->
         <section class="panel simulation-panel">
 
-            <h2>Live Simulation</h2>
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Playback</p>
+                </div>
+                <span id="simulationStatus" class="status-pill">Ready</span>
+            </div>
 
             <div class="road">
 
-                <div id="motorcycle">
-                    🏍️
+                <div class="road-sky"></div>
+                <div class="road-horizon"></div>
+                <div class="road-cloud cloud-one"></div>
+                <div class="road-cloud cloud-two"></div>
+                <div class="city-scene" aria-hidden="true">
+                    <span class="building building-one"></span>
+                    <span class="building building-two"></span>
+                    <span class="building building-three"></span>
+                    <span class="house house-one"></span>
+                    <span class="house house-two"></span>
                 </div>
-
-                <div class="stop-line"></div>
+                <div class="track-scene" aria-hidden="true">
+                    <span class="track-curb curb-left"></span>
+                    <span class="track-curb curb-right"></span>
+                    <span class="starting-grid"></span>
+                    <span class="track-banner">RACE / 01</span>
+                </div>
+                <div class="road-post post-left"><span></span></div>
+                <div class="road-post post-right"><span></span></div>
+                <div class="rain-layer" aria-hidden="true"></div>
+                <div class="road-surface"><span></span><span></span><span></span><span></span></div>
+                <div id="brakeImpressions" aria-hidden="true"><span></span><span></span></div>
+                <div id="motorcycle" role="img" aria-label="Motorcycle">
+                    <svg viewBox="0 0 240 120" aria-hidden="true">
+                        <circle class="wheel" cx="48" cy="91" r="24"></circle>
+                        <circle class="wheel" cx="190" cy="91" r="24"></circle>
+                        <circle class="hub" cx="48" cy="91" r="7"></circle>
+                        <circle class="hub" cx="190" cy="91" r="7"></circle>
+                        <g class="wheel-spin rear-wheel-spin">
+                            <path d="M48 70v42M27 91h42M33 76l30 30M33 106l30-30"></path>
+                        </g>
+                        <g class="wheel-spin front-wheel-spin">
+                            <path d="M190 70v42M169 91h42M175 76l30 30M175 106l30-30"></path>
+                        </g>
+                        <circle class="brake-disc rear-disc" cx="48" cy="91" r="16"></circle>
+                        <circle class="tone-ring rear-tone-ring" cx="48" cy="91" r="11"></circle>
+                        <path class="caliper rear-caliper" d="M64 72c5 4 5 13-1 17l-8-4 1-12z"></path>
+                        <circle class="wss-sensor rear-wss" cx="65" cy="73" r="3"></circle>
+                        <path class="hydraulic-line rear-hydraulic" d="M65 73 76 58 81 45"></path>
+                        <circle class="brake-disc" cx="190" cy="91" r="16"></circle>
+                        <circle class="tone-ring" cx="190" cy="91" r="11"></circle>
+                        <path class="tank" d="M80 49c6-17 20-24 43-18l20 20-14 19H92z"></path>
+                        <path class="fairing" d="M127 47h37l17 19-26 11-31-12z"></path>
+                        <path class="accent-panel" d="M93 48h35l-11 22H83z"></path>
+                        <path class="stripe" d="M101 48h24l-9 17H93z"></path>
+                        <path class="seat" d="M84 35h38l16 11H91z"></path>
+                        <path class="monoshock" d="M72 84 96 58"></path>
+                        <path class="monoshock-spring" d="M80 76l7 4-5 4 7 4-5 4"></path>
+                        <path class="fork" d="M164 47l26 44M172 47l18 44"></path>
+                        <path class="caliper" d="M174 72c-5 4-5 13 1 17l8-4-1-12z"></path>
+                        <circle class="wss-sensor" cx="174" cy="73" r="3"></circle>
+                        <path class="hydraulic-line" d="M174 73 181 57 179 47"></path>
+                        <path class="handlebar" d="M159 23h25l8 6M169 23l-7-8M184 23l8-8"></path>
+                        <path class="brake-lever" d="M185 28l7 7"></path>
+                        <path class="accel-cable" d="M190 29 177 39 162 46M192 31 181 42 166 49"></path>
+                        <path class="exhaust" d="M112 78h62l15 11h-62z"></path>
+                        <path class="head-lamp" d="M164 45l17 3 6 12-19 3z"></path>
+                        <circle class="head-lamp-bulb" cx="177" cy="54" r="4"></circle>
+                        <circle class="running-light" cx="187" cy="53" r="2.5"></circle>
+                        <path class="tail-light" d="M81 49 66 52l-7 10 20-3z"></path>
+                    </svg>
+                </div>
 
             </div>
 
-            <div class="simulation-status">
-                <span id="simulationStatus">
-                    Ready
-                </span>
+            <div class="telemetry" aria-live="polite">
+                <div><span>Velocity</span><strong id="telemetryVelocity">0.0 <small>km/h</small></strong></div>
+                <div><span>Distance</span><strong id="telemetryDistance">0.0 <small>m</small></strong></div>
+                <div><span>Elapsed</span><strong id="telemetryTime">0.00 <small>s</small></strong></div>
+                <div><span>Brake load</span><strong id="telemetryForce">0 <small>N</small></strong></div>
             </div>
 
         </section>
@@ -100,25 +182,25 @@
         <section class="results">
 
             <div class="result-card">
-                <h3>Stopping Time</h3>
+                <h3>Stopping time</h3>
                 <p id="stoppingTime">--</p>
                 <span>seconds</span>
             </div>
 
             <div class="result-card">
-                <h3>Stopping Distance</h3>
+                <h3>Stopping distance</h3>
                 <p id="stoppingDistance">--</p>
                 <span>meters</span>
             </div>
 
             <div class="result-card">
-                <h3>Maximum Deceleration</h3>
+                <h3>Max deceleration</h3>
                 <p id="deceleration">--</p>
                 <span>m/s²</span>
             </div>
 
             <div class="result-card">
-                <h3>Actual Brake Force</h3>
+                <h3>Actual brake force</h3>
                 <p id="actualBrakeForce">--</p>
                 <span>newtons</span>
             </div>
@@ -126,9 +208,19 @@
         </section>
 
 
-        <!-- Graph removed for motorcycle-only UI -->
+        <section class="panel graph-panel">
+            <div class="section-heading">
+                <div><p class="eyebrow">Readout</p><h2>Velocity over time</h2></div>
+                <span class="graph-key"><i></i> speed profile</span>
+            </div>
+            <canvas id="velocityGraph" aria-label="Velocity over time graph"></canvas>
+        </section>
 
     </main>
+
+    <footer class="site-footer">
+        Copyright (c) 2026 Godwin George. For personal studies only.
+    </footer>
 
     <script src="scripts.js"></script>
 
