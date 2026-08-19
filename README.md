@@ -14,28 +14,11 @@ https://godwingeorge.github.io/Motorcycle-braking-simulator/
 
 ## Using the GUI
 
-Open the live demo, or run the frontend locally from the repository root:
-
-```bash
-python3 -m http.server 8000 --directory web
-```
-
-Then open http://localhost:8000 in a browser.
-
-1. Choose a preset: City Ride, Wet Road, or Track Day.
-2. Adjust motorcycle mass, initial speed, road friction, and brake force if needed.
+Open the live demo, 
+1. Choose Motorcycle mode: City Ride, Wet Road, or Track Day.
+2. Adjust motorcycle mass, initial speed, road friction, and brake force.
 3. Select Run Simulation.
-4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
-5. Review stopping time, distance, deceleration, and actual brake force in the result cards.
-
-The GUI always sends simulation requests to the deployed Cloudflare Worker. An internet connection is required when using the hosted GUI. Running the static frontend locally is only a preview; it does not switch the GUI to the C++ backend.
-
-
-## Publishing the GUI
-
-The published webpage is served from the `gh-pages` branch. After changing files in `web/`, copy the updated `web/index.html`, `web/scripts.js`, and `web/style.css` to the root of that branch, commit, and push it. GitHub Pages may take a short time to refresh after the push.
-
-
+4. Review stopping time, distance, deceleration, and actual brake force in the result cards.
 
 ---
 
