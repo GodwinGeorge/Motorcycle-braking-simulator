@@ -3,7 +3,9 @@
 #include "crow.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -15,10 +17,38 @@ struct SimulationPoint
     double position;
 };
 
+struct SensorSample
+{
+    double time;
+    double frontWheelSpeed;
+    double rearWheelSpeed;
+    double longitudinalAcceleration;
+    double lateralAcceleration;
+    double verticalAcceleration;
+    double rollRate;
+    double pitchRate;
+    double yawRate;
+    double gpsLatitude;
+    double gpsLongitude;
+    double gpsSpeed;
+    bool gpsFix;
+};
+
 
 int main()
 {
     crow::SimpleApp app;
+
+    CROW_ROUTE(app, "/simulate").methods("OPTIONS"_method)
+        ([]()
+        {
+            crow::response response;
+            response.add_header("Access-Control-Allow-Origin", "*");
+            response.add_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+            response.add_header("Access-Control-Allow-Headers", "Content-Type");
+            return response;
+        });
+
     CROW_ROUTE(app, "/")
         ([]()
         {
@@ -43,13 +73,13 @@ int main()
 });
 
 
-    CROW_ROUTE(app, "/script.js")
+    CROW_ROUTE(app, "/scripts.js")
     ([]()
     {
         crow::response response;
 
         response.set_static_file_info(
-            "web/script.js"
+        "web/scripts.js"
         );
 
         return response;
@@ -83,6 +113,17 @@ int main()
 
             double brakeForce =
                 body["brakeForce"].d();
+
+            double sensorNoise = body["sensorNoise"].d();
+            double gpsNoise = body["gpsNoise"].d();
+            double wheelRadius = body["wheelRadius"].d();
+            double sensorRate = body["sensorRate"].d();
+
+            if (sensorNoise <= 0.0) sensorNoise = 0.02;
+            if (gpsNoise <= 0.0) gpsNoise = 1.5;
+            if (wheelRadius <= 0.0) wheelRadius = 0.31;
+            if (sensorRate <= 0.0) sensorRate = 100.0;
+            sensorRate = std::clamp(sensorRate, 10.0, 100.0);
 
 
             // Convert km/h → m/s
@@ -122,8 +163,17 @@ int main()
                     maximumBrakeForce
                 );
 
+            const double deceleration = actualBrakeForce / mass;
+
 
             std::vector<SimulationPoint> data;
+            std::vector<SensorSample> sensors;
+            std::normal_distribution<double> sensorError(0.0, sensorNoise);
+            std::normal_distribution<double> gpsError(0.0, gpsNoise);
+            std::mt19937 random(42);
+            double lastGpsLatitude = 51.5074;
+            double lastGpsLongitude = -0.1278;
+            double lastGpsSpeed = initialSpeed;
 
 
             double time = 0.0;
@@ -149,6 +199,43 @@ int main()
                         vehicle.getPosition()
                     }
                 );
+
+                const double speed = vehicle.getVelocity();
+                const double brakingRatio = deceleration > 0.0
+                    ? std::clamp(std::abs(vehicle.getAcceleration()) / deceleration, 0.0, 1.0)
+                    : 0.0;
+                const double frontLoadFactor = 1.0 + 0.12 * brakingRatio;
+                const double rearLoadFactor = 1.0 - 0.08 * brakingRatio;
+                const bool sensorSample = std::fmod(time, 1.0 / sensorRate) < DT;
+                const bool gpsSample = std::fmod(time, 1.0) < DT;
+
+                if (sensorSample || sensors.empty())
+                {
+                    if (gpsSample || sensors.empty())
+                    {
+                        const double gpsPositionNoise = gpsError(random);
+                        lastGpsLatitude = 51.5074 + gpsPositionNoise / 111111.0;
+                        lastGpsLongitude = -0.1278 + (vehicle.getPosition() + gpsPositionNoise) / 69400.0;
+                        lastGpsSpeed = std::max(0.0, speed + gpsError(random) * 0.05);
+                    }
+                    sensors.push_back(
+                        {
+                            time,
+                            std::max(0.0, speed * frontLoadFactor / wheelRadius + sensorError(random)),
+                            std::max(0.0, speed * rearLoadFactor / wheelRadius + sensorError(random)),
+                            vehicle.getAcceleration() + sensorError(random),
+                            sensorError(random) * 0.25,
+                            9.81 + sensorError(random) * 0.5,
+                            sensorError(random) * 0.1,
+                            -std::abs(vehicle.getAcceleration()) * 0.015 + sensorError(random) * 0.1,
+                            sensorError(random) * 0.1,
+                            lastGpsLatitude,
+                            lastGpsLongitude,
+                            lastGpsSpeed,
+                            true
+                        }
+                    );
+                }
             }
 
 
@@ -165,6 +252,9 @@ int main()
 
             response["maxDeceleration"] =
                 actualBrakeForce / mass;
+
+            response["deceleration"] =
+                -deceleration;
 
             response["actualBrakeForce"] =
                 actualBrakeForce;
@@ -200,10 +290,34 @@ int main()
             response["data"] =
                 std::move(dataArray);
 
+            crow::json::wvalue sensorArray;
+            int sensorIndex = 0;
+            for (const auto& sample : sensors)
+            {
+                crow::json::wvalue item;
+                item["time"] = sample.time;
+                item["frontWheelSpeed"] = sample.frontWheelSpeed;
+                item["rearWheelSpeed"] = sample.rearWheelSpeed;
+                item["longitudinalAcceleration"] = sample.longitudinalAcceleration;
+                item["lateralAcceleration"] = sample.lateralAcceleration;
+                item["verticalAcceleration"] = sample.verticalAcceleration;
+                item["rollRate"] = sample.rollRate;
+                item["pitchRate"] = sample.pitchRate;
+                item["yawRate"] = sample.yawRate;
+                item["gpsLatitude"] = sample.gpsLatitude;
+                item["gpsLongitude"] = sample.gpsLongitude;
+                item["gpsSpeed"] = sample.gpsSpeed;
+                item["gpsFix"] = sample.gpsFix;
+                sensorArray[sensorIndex++] = std::move(item);
+            }
+            response["sensors"] = std::move(sensorArray);
 
-            return crow::response(
-                std::move(response)
-            );
+
+            crow::response result(std::move(response));
+            result.add_header("Access-Control-Allow-Origin", "*");
+            result.add_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+            result.add_header("Access-Control-Allow-Headers", "Content-Type");
+            return result;
         });
 
 

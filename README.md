@@ -18,7 +18,15 @@ Open the live demo,
 1. Choose Motorcycle mode: City Ride, Wet Road, or Track Day.
 2. Adjust motorcycle mass, initial speed, road friction, and brake force.
 3. Select Run Simulation.
-4. Review stopping time, distance, deceleration, and actual brake force in the result cards.
+4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
+5. Review stopping time, distance, deceleration, and actual brake force in the result cards.
+
+The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI still requires the deployed API until the sensor response is added to the publishing adapters.
+
+
+## Publishing the GUI
+
+The published webpage is served from the `gh-pages` branch. After changing files in `web/`, copy the updated `web/index.html`, `web/scripts.js`, and `web/style.css` to the root of that branch, commit, and push it. GitHub Pages may take a short time to refresh after the push.
 
 ---
 

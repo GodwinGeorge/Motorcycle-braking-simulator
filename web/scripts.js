@@ -2,6 +2,8 @@ const simulateButton = document.getElementById("simulateButton");
 const motorcycle = document.getElementById("motorcycle");
 const brakeImpressions = document.getElementById("brakeImpressions");
 const status = document.getElementById("simulationStatus");
+const apiState = document.getElementById("apiState");
+const configurationHint = document.getElementById("configurationHint");
 const road = document.querySelector(".road");
 const telemetry = {
     velocity: document.getElementById("telemetryVelocity"),
@@ -9,12 +11,69 @@ const telemetry = {
     time: document.getElementById("telemetryTime"),
     force: document.getElementById("telemetryForce")
 };
+const sensorTelemetry = {
+    frontWss: document.getElementById("sensorFrontWss"),
+    rearWss: document.getElementById("sensorRearWss"),
+    accel: document.getElementById("sensorAccel"),
+    gyro: document.getElementById("sensorGyro"),
+    gpsSpeed: document.getElementById("sensorGpsSpeed"),
+    gpsPosition: document.getElementById("sensorGpsPosition"),
+    gpsFix: document.getElementById("sensorGpsFix"),
+    sampleLabel: document.getElementById("sensorSampleLabel")
+};
 
 const presets = {
-    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000 },
-    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000 },
-    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500 }
+    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.02, gpsNoise: 1.5, wheelRadius: 0.31 },
+    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.04, gpsNoise: 2.5, wheelRadius: 0.31 },
+    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500, sensorRate: 100, sensorNoise: 0.03, gpsNoise: 1.0, wheelRadius: 0.31 }
 };
+
+const cloudEndpoint = 'https://vehicle-braking-worker.godwin-veh-sim.workers.dev';
+const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+const inputLabels = {
+    mass: "Motorcycle mass",
+    speed: "Initial speed",
+    friction: "Road friction",
+    brakeForce: "Brake force",
+    sensorRate: "Sensor rate",
+    sensorNoise: "IMU / WSS noise",
+    gpsNoise: "GPS position noise",
+    wheelRadius: "Wheel radius"
+};
+
+function setConfigurationHint(message, isError = false) {
+    configurationHint.textContent = message;
+    configurationHint.classList.toggle("is-error", isError);
+}
+
+function validateInputs() {
+    for (const [id, label] of Object.entries(inputLabels)) {
+        const input = document.getElementById(id);
+        if (input.value.trim() === "" || !input.validity.valid || !Number.isFinite(Number(input.value))) {
+            setConfigurationHint(`${label} needs a valid value.`, true);
+            input.focus();
+            return false;
+        }
+    }
+    return true;
+}
+
+async function checkCloudflareConnection() {
+    if (isLocalHost) {
+        apiState.innerHTML = '<span class="live-dot"></span>Local API mode';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${cloudEndpoint}/health`);
+        if (!response.ok) throw new Error(`Health check failed: ${response.status}`);
+        apiState.innerHTML = '<span class="live-dot"></span>Cloudflare connected';
+    } catch (error) {
+        apiState.innerHTML = '<span class="live-dot is-offline"></span>Cloudflare unavailable';
+        console.error(error);
+    }
+}
 
 document.querySelectorAll(".preset").forEach((button) => {
     button.addEventListener("click", () => {
@@ -22,61 +81,135 @@ document.querySelectorAll(".preset").forEach((button) => {
         Object.entries(values).forEach(([key, value]) => {
             document.getElementById(key).value = value;
         });
+        document.querySelectorAll(".sensor-option").forEach((option) => {
+            option.classList.toggle("is-active", option.dataset.value === String(values[option.dataset.input]));
+        });
         document.querySelectorAll(".preset").forEach((item) => item.classList.remove("is-active"));
         button.classList.add("is-active");
+        document.querySelectorAll(".preset").forEach((item) => item.setAttribute("aria-checked", String(item === button)));
         document.body.dataset.road = button.dataset.preset;
+        setConfigurationHint(`${button.querySelector("strong").textContent} profile selected · values update instantly`);
+    });
+});
+
+document.querySelectorAll(".sensor-option").forEach((button) => {
+    button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.input);
+        input.value = button.dataset.value;
+        button.closest(".sensor-options").querySelectorAll(".sensor-option").forEach((item) => item.classList.remove("is-active"));
+        button.classList.add("is-active");
+        setConfigurationHint(`${button.closest(".sensor-control").querySelector("label").textContent}: ${button.querySelector("small").textContent}`);
+    });
+});
+
+Object.keys(inputLabels).forEach((id) => {
+    document.getElementById(id).addEventListener("input", () => {
+        if (["sensorNoise", "gpsNoise", "wheelRadius"].includes(id)) {
+            document.querySelectorAll(`[data-input="${id}"]`).forEach((option) => {
+                option.classList.toggle("is-active", Number(option.dataset.value) === Number(document.getElementById(id).value));
+            });
+        }
+        setConfigurationHint("Custom configuration · ready to simulate");
     });
 });
 
 simulateButton.addEventListener("click", simulate);
 
 async function simulate() {
+    if (!validateInputs()) return;
+
     const mass = Number(document.getElementById("mass").value);
     const initialSpeedKmh = Number(document.getElementById("speed").value);
     const friction = Number(document.getElementById("friction").value);
     const brakeForce = Number(document.getElementById("brakeForce").value);
+    const sensorRate = Number(document.getElementById("sensorRate").value);
+    const sensorNoise = Number(document.getElementById("sensorNoise").value);
+    const gpsNoise = Number(document.getElementById("gpsNoise").value);
+    const wheelRadius = Number(document.getElementById("wheelRadius").value);
 
     status.textContent = "Contacting backend...";
+    simulateButton.disabled = true;
+    simulateButton.querySelector("span").textContent = "Running simulation";
 
-    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce };
+    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius };
 
     try {
-        const workerEndpoint = 'https://vehicle-braking-worker.godwin-veh-sim.workers.dev/simulate';
+        const endpoint = isLocalHost
+            ? 'http://localhost:18080/simulate'
+            : `${cloudEndpoint}/simulate`;
         const opts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         };
 
-        // Cloud-only: always call the deployed Cloudflare Worker
-        const resp = await fetch(workerEndpoint, opts);
+        const resp = await fetch(endpoint, opts);
 
         if (!resp.ok) {
-            status.textContent = `Server error: ${resp.status}`;
-            return;
+            const error = await resp.json().catch(() => null);
+            throw new Error(error?.error || `Server error: ${resp.status}`);
         }
 
         const json = await resp.json();
-
-        const initialSpeed = initialSpeedKmh / 3.6;
-        const deceleration = Math.abs(json.deceleration);
-        const stoppingTime = json.stoppingTime;
-
-        document.getElementById("stoppingTime").textContent = stoppingTime.toFixed(2);
-        document.getElementById("stoppingDistance").textContent = json.stoppingDistance.toFixed(2);
-        document.getElementById("deceleration").textContent = deceleration.toFixed(2);
-        document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
-
-        animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce);
-        drawGraph(initialSpeed, deceleration, stoppingTime);
+        apiState.innerHTML = `<span class="live-dot"></span>${endpoint.includes("workers.dev") ? "Cloudflare connected" : "Local API connected"}`;
+        renderSimulation(json, initialSpeedKmh, sensorRate, payload);
 
     } catch (err) {
-        status.textContent = 'Request failed';
+        const fallback = buildBrowserSimulation(payload);
+        apiState.innerHTML = '<span class="live-dot is-offline"></span>Browser calculation mode';
+        setConfigurationHint('API unavailable · using the built-in braking model', true);
+        renderSimulation(fallback, initialSpeedKmh, sensorRate, payload);
         console.error(err);
+    } finally {
+        simulateButton.disabled = false;
+        simulateButton.querySelector("span").textContent = "Run simulation";
     }
 }
 
-function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce) {
+function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
+    const initialSpeed = initialSpeedKmh / 3.6;
+    const deceleration = Math.abs(json.deceleration);
+    const stoppingTime = json.stoppingTime;
+
+    document.getElementById("stoppingTime").textContent = stoppingTime.toFixed(2);
+    document.getElementById("stoppingDistance").textContent = json.stoppingDistance.toFixed(2);
+    document.getElementById("deceleration").textContent = deceleration.toFixed(2);
+    document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
+    // The Cloudflare Worker returns recorded samples. Other compatible APIs only
+    // return the physics result, so generate a matching local telemetry stream.
+    const sensors = Array.isArray(json.sensors) && json.sensors.length
+        ? json.sensors
+        : buildBrowserSimulation(payload).sensors;
+    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate);
+    drawGraph(initialSpeed, deceleration, stoppingTime);
+}
+
+function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius }) {
+    const initialSpeed = speed / 3.6;
+    const actualBrakeForce = Math.min(brakeForce, friction * mass * 9.81);
+    const deceleration = actualBrakeForce / mass;
+    const stoppingTime = initialSpeed / deceleration;
+    const stoppingDistance = (initialSpeed * initialSpeed) / (2 * deceleration);
+    const interval = 1 / sensorRate;
+    const sensors = Array.from({ length: Math.ceil(stoppingTime / interval) }, (_, index) => {
+        const time = Math.min((index + 1) * interval, stoppingTime);
+        const velocity = Math.max(0, initialSpeed - deceleration * time);
+        const position = Math.max(0, initialSpeed * time - 0.5 * deceleration * time * time);
+        const wobble = Math.sin(index * 12.9898) * sensorNoise;
+        const positionWobble = Math.sin(index * 8.13) * gpsNoise;
+        return {
+            frontWheelSpeed: Math.max(0, velocity * 1.12 / wheelRadius + wobble), rearWheelSpeed: Math.max(0, velocity * .92 / wheelRadius + wobble),
+            longitudinalAcceleration: -deceleration + wobble, pitchRate: -deceleration * .015 + wobble, yawRate: wobble * .1, rollRate: wobble * .1,
+            gpsSpeed: Math.max(0, velocity + wobble * .05), gpsLatitude: 51.5074 + positionWobble / 111111,
+            gpsLongitude: -0.1278 + (position + positionWobble) / 69400, gpsFix: true
+        };
+    });
+    return { stoppingTime, stoppingDistance, deceleration: -deceleration, actualBrakeForce, sensors };
+}
+
+checkCloudflareConnection();
+
+function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate) {
     status.textContent = "Braking...";
     status.className = "status-pill is-running";
     motorcycle.style.left = "20px";
@@ -104,6 +237,8 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
         telemetry.distance.innerHTML = `${Math.max(position, 0).toFixed(1)} <small>m</small>`;
         telemetry.time.innerHTML = `${t.toFixed(2)} <small>s</small>`;
         telemetry.force.innerHTML = `${actualBrakeForce.toFixed(0)} <small>N</small>`;
+        const sensorIndex = Math.min(Math.floor(t * sensorRate), Math.max(sensors.length - 1, 0));
+        updateSensorReadout(sensors[sensorIndex], sensorIndex, sensors.length);
 
         if (elapsed < stoppingTime) {
             requestAnimationFrame(animationFrame);
@@ -118,6 +253,18 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
     }
 
     requestAnimationFrame(animationFrame);
+}
+
+function updateSensorReadout(sample, index, total) {
+    if (!sample) return;
+    sensorTelemetry.frontWss.innerHTML = `${sample.frontWheelSpeed.toFixed(2)} <small>rad/s</small>`;
+    sensorTelemetry.rearWss.innerHTML = `${sample.rearWheelSpeed.toFixed(2)} <small>rad/s</small>`;
+    sensorTelemetry.accel.innerHTML = `${sample.longitudinalAcceleration.toFixed(2)} <small>m/s²</small>`;
+    sensorTelemetry.gyro.innerHTML = `${sample.pitchRate.toFixed(2)} / ${sample.yawRate.toFixed(2)} / ${sample.rollRate.toFixed(2)} <small>rad/s</small>`;
+    sensorTelemetry.gpsSpeed.innerHTML = `${sample.gpsSpeed.toFixed(2)} <small>m/s</small>`;
+    sensorTelemetry.gpsPosition.textContent = `${sample.gpsLatitude.toFixed(5)}, ${sample.gpsLongitude.toFixed(5)}`;
+    sensorTelemetry.gpsFix.textContent = sample.gpsFix ? "LOCKED" : "LOST";
+    sensorTelemetry.sampleLabel.textContent = `${index + 1} / ${total} samples`;
 }
 
 function drawGraph(initialSpeed, deceleration, stoppingTime) {
