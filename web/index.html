@@ -29,7 +29,7 @@
 
         <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
-                <p class="eyebrow">Personal study / vehicle dynamics</p>
+                <p class="eyebrow">Personal study / motorcycle dynamics</p>
                 <h1 id="hero-title">Know your<br><em>stopping point.</em></h1>
                 <p>Explore the decisions that change a motorcycle stop: speed, grip, mass, brake pressure and measured signals. A practical study in physics, sensing and software.</p>
                 <div class="hero-actions">
@@ -339,13 +339,13 @@
         <div class="technical-heading">
             <p class="eyebrow">Notes from the study</p>
             <h2 id="technical-title">What changes the stop?</h2>
-            <p>The controls are deliberately connected to ideas used in vehicle dynamics and embedded measurement.</p>
+            <p>The controls are deliberately connected to ideas used in motorcycle dynamics and embedded measurement.</p>
         </div>
         <div class="technical-grid">
             <article>
                 <span class="technical-index">01 / IMU</span>
                 <h3>Motion, not just distance</h3>
-                <p>An inertial measurement unit reports acceleration and rotation. In this model, longitudinal acceleration tracks deceleration while pitch, yaw and roll rates add a small motion signature.</p>
+                <p>An inertial measurement unit reports acceleration and rotation. In this model, longitudinal acceleration tracks deceleration while pitch, yaw and roll rates add a small motorcycle-motion signature.</p>
             </article>
             <article>
                 <span class="technical-index">02 / GPS</span>
@@ -362,6 +362,11 @@
                 <h3>Grip sets the ceiling</h3>
                 <p>City, wet and track profiles change friction, speed and load together. The model caps braking at <code>Fmax = friction x mass x gravity</code>, so extra brake force cannot overcome limited tyre grip.</p>
             </article>
+            <article>
+                <span class="technical-index">05 / ABS</span>
+                <h3>What is not modeled</h3>
+                <p>This study is not a dual-channel ABS model. It does not estimate slip ratio or modulate independent front and rear hydraulic pressure, so it cannot represent ABS intervention.</p>
+            </article>
         </div>
         <div class="stack-strip">
             <span>Built with</span>
@@ -373,7 +378,7 @@
 
     <footer class="site-footer">
         <span>GODWIN<span>STUDY LAB</span></span>
-        <p>Independent study in vehicle dynamics, sensing and software. © 2026 Godwin George.</p>
+        <p>Independent study in motorcycle dynamics, sensing and software. © 2026 Godwin George.</p>
     </footer>
 
     <script src="scripts.js?v=11a79ad"></script>
