@@ -122,10 +122,26 @@
                 <label for="sensorRate">Sensor Rate (Hz)</label>
                 <input type="number" id="sensorRate" value="100" min="10" max="100" step="10">
             </div>
+            <div class="input-group compact-input">
+                <label for="leanAngle">Lean Angle (deg)</label>
+                <input type="number" id="leanAngle" value="0" min="0" max="60" step="1">
+            </div>
+            <div class="input-group compact-input">
+                <label for="frontBrakeBias">Front Brake Bias (%)</label>
+                <input type="number" id="frontBrakeBias" value="70" min="0" max="100" step="1">
+            </div>
             </div>
                 </div>
 
             <div class="sensor-controls" aria-label="Sensor settings">
+                <div class="sensor-control abs-control">
+                    <label>Brake controller</label>
+                    <div class="sensor-options">
+                        <button class="sensor-option is-active" type="button" data-input="absEnabled" data-value="true"><strong>Dual ABS</strong><small>simplified</small></button>
+                        <button class="sensor-option" type="button" data-input="absEnabled" data-value="false"><strong>Manual</strong><small>no modulation</small></button>
+                    </div>
+                    <input type="hidden" id="absEnabled" value="true" aria-label="Dual channel ABS enabled">
+                </div>
                 <div class="sensor-control">
                     <label>IMU / WSS noise</label>
                     <div class="sensor-options">
@@ -364,8 +380,8 @@
             </article>
             <article>
                 <span class="technical-index">05 / ABS</span>
-                <h3>What is not modeled</h3>
-                <p>This study is not a dual-channel ABS model. It does not estimate slip ratio or modulate independent front and rear hydraulic pressure, so it cannot represent ABS intervention.</p>
+                <h3>A simplified controller</h3>
+                <p>Dual ABS mode estimates front and rear slip from wheel speed, then limits each brake channel independently. It is educational only and does not represent a certified motorcycle ABS system.</p>
             </article>
         </div>
         <div class="stack-strip">
