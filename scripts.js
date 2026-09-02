@@ -304,7 +304,7 @@ function drawGraph(initialSpeed, deceleration, stoppingTime) {
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
 
-        ctx.strokeStyle = "#e4572e";
+        ctx.strokeStyle = "#2f6b4f";
         ctx.lineWidth = 3 * window.devicePixelRatio;
         ctx.stroke();
         ctx.fillStyle = "#7a7770";
