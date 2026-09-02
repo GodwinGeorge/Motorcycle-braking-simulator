@@ -1,6 +1,6 @@
 🏍️ Motorcycle Braking Simulator 🖥️ 
 
-A web-based vehicle braking simulator that calculates braking force, deceleration, stopping time, and stopping distance using a physics-based longitudinal braking model.
+A web-based motorcycle braking study that explores braking force, deceleration, stopping time, stopping distance, sensor telemetry, load transfer, lean angle, and a simplified dual-channel ABS controller.
 
 
 
@@ -42,7 +42,9 @@ The published webpage is served from the `gh-pages` branch. After changing files
 
 🧠 Physics Model
 
-The simulator currently uses a simplified longitudinal braking model.
+The simulator uses a simplified motorcycle braking model for education and experimentation. It is not certified safety software and does not replace measured vehicle validation.
+
+Motorcycle-specific study inputs include lean-angle grip reduction, approximate forward load transfer, front/rear brake bias, wheel-speed signals, and optional independent ABS force limiting. The ABS controller is intentionally simplified: it is not a production implementation and does not model hydraulic valves, pressure dynamics, tyre force curves, or a complete vehicle state estimator.
 
 Maximum tyre-road braking force
 
