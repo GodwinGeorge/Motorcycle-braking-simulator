@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Godwin Study Lab — Motorcycle Braking Simulator</title>
+    <title>The Study Lab — Motorcycle Braking Simulator</title>
     <!-- GitHub Pages frontend build -->
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +16,7 @@
 <body data-road="city">
 
     <header class="site-header">
-        <a class="wordmark" href="#top" aria-label="Godwin Study Lab home">GODWIN<span>STUDY LAB</span></a>
+        <a class="wordmark" href="#top" aria-label="The Study Lab home">THE<span>STUDY LAB</span></a>
         <nav class="site-nav" aria-label="Main navigation">
             <a href="#simulator">Simulator</a>
             <a href="#how-it-works">How it works</a>
@@ -231,6 +231,7 @@
                         </g>
                         <circle class="brake-disc rear-disc" cx="48" cy="91" r="16"></circle>
                         <circle class="tone-ring rear-tone-ring" cx="48" cy="91" r="11"></circle>
+                        <g class="leaning-body">
                         <path class="caliper rear-caliper" d="M64 72c5 4 5 13-1 17l-8-4 1-12z"></path>
                         <circle class="wss-sensor rear-wss" cx="65" cy="73" r="3"></circle>
                         <path class="hydraulic-line rear-hydraulic" d="M65 73 76 58 81 45"></path>
@@ -255,6 +256,7 @@
                         <circle class="head-lamp-bulb" cx="177" cy="54" r="4"></circle>
                         <circle class="running-light" cx="187" cy="53" r="2.5"></circle>
                         <path class="tail-light" d="M81 49 66 52l-7 10 20-3z"></path>
+                        </g>
                     </svg>
                 </div>
 
@@ -299,7 +301,7 @@
             </div>
 
             <div class="result-card">
-                <h3>Max deceleration</h3>
+                    <h3>Average deceleration</h3>
                 <p id="deceleration">--</p>
                 <span>m/s²</span>
             </div>
@@ -355,7 +357,7 @@
         <div class="technical-heading">
             <p class="eyebrow">Notes from the study</p>
             <h2 id="technical-title">What changes the stop?</h2>
-            <p>The controls are deliberately connected to ideas used in motorcycle dynamics and embedded measurement.</p>
+            <p>Each control has a visible effect: speed, mass, grip, brake force, lean and brake bias change the stop; ABS changes wheel slip and stopping distance; sensor settings change the fused readout; radius changes tyre size and wheel angular speed.</p>
         </div>
         <div class="technical-grid">
             <article>
@@ -371,29 +373,34 @@
             <article>
                 <span class="technical-index">03 / RADIUS</span>
                 <h3>Rotation becomes speed</h3>
-                <p>Wheel speed sensors measure angular velocity. The relationship is <code>v = omega x r</code>: a larger wheel radius means more linear travel per revolution, so the same wheel speed implies a higher road speed.</p>
+                <p>Wheel speed sensors measure angular velocity. The relationship is <code>v = omega × r</code>: a larger wheel radius means more linear travel per revolution, so the same angular speed implies a higher road speed.</p>
             </article>
             <article>
                 <span class="technical-index">04 / PROFILES</span>
                 <h3>Grip sets the ceiling</h3>
-                <p>City, wet and track profiles change friction, speed and load together. The model caps braking at <code>Fmax = friction x mass x gravity</code>, so extra brake force cannot overcome limited tyre grip.</p>
+                <p>City, wet and track profiles change friction, speed, mass and brake demand. The model caps braking at <code>Fmax = friction × mass × gravity</code>, so extra brake force cannot overcome limited tyre grip.</p>
             </article>
             <article>
                 <span class="technical-index">05 / ABS</span>
                 <h3>A simplified controller</h3>
                 <p>Dual ABS mode estimates front and rear slip from wheel speed, then limits each brake channel independently. It is educational only and does not represent a certified motorcycle ABS system.</p>
             </article>
+            <article>
+                <span class="technical-index">06 / LEAN</span>
+                <h3>When the bike falls</h3>
+                <p>The animation shows a restrained side-view lean while both tyres stay planted. Wheel radius changes the centre-of-mass height, so the fall limit is <code>lean limit = atan(0.62 / (0.62 + radius − 0.31))</code>. If the selected angle exceeds that limit, the motorcycle falls: <code>lean angle &gt; lean limit → fallen</code>. A larger lean also reduces braking grip with <code>grip = friction × cos(lean angle)</code>.</p>
+            </article>
         </div>
         <div class="stack-strip">
             <span>Built with</span>
             <strong>C++</strong><strong>JavaScript</strong><strong>HTML</strong><strong>CSS</strong><strong>Cloudflare Workers</strong><strong>GitHub Actions</strong>
-            <p>The C++ service and JavaScript Worker share the same simplified model; the browser fallback keeps the study interactive when an API is unavailable.</p>
+            <p>The C++ service, JavaScript Worker and browser fallback use the same core braking inputs; the Worker and fallback also expose the sensor-fusion playback when an API is unavailable.</p>
         </div>
         <p class="scope-note">For personal study and demonstration only. Results are illustrative, not a substitute for road testing, manufacturer data, qualified engineering review, or legal / safety advice. No confidential employer information or proprietary work is used here.</p>
     </section>
 
     <footer class="site-footer">
-        <span>GODWIN<span>STUDY LAB</span></span>
+        <span>THE<span>STUDY LAB</span></span>
         <p>Independent study in motorcycle dynamics, sensing and software. © 2026 Godwin George.</p>
     </footer>
 

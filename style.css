@@ -4,9 +4,9 @@
     --paper: #f2f0e9;
     --panel: #fffdf8;
     --line: #dedbd3;
-    --orange: #2f6b4f;
-    --orange-dark: #1f4d39;
-    --green: #537b62;
+    --orange: #c76545;
+    --orange-dark: #8f3f31;
+    --green: #3f6972;
 }
 
 * { box-sizing: border-box; }
@@ -125,10 +125,11 @@ body[data-road="wet"] .road-surface::after, body[data-road="wet"] .road-surface:
 body[data-road="track"] .road-sky { background: linear-gradient(#a9c7ce, #dae0d3); }
 body[data-road="track"] .road-horizon { background: linear-gradient(170deg, transparent 40%, #617d6e 41% 62%, #a2af8e 63%); }
 body[data-road="track"] .road-post { border-top-color: #d8d2c0; }
-#motorcycle { position: absolute; z-index: 2; top: 49%; left: 20px; width: 154px; transform: translateY(-50%); filter: drop-shadow(0 7px 4px rgba(0,0,0,.25)); }
+#motorcycle { position: absolute; z-index: 2; top: 49%; left: 20px; width: 154px; transform: translateY(-50%); transform-origin: 50% 78%; filter: drop-shadow(0 7px 4px rgba(0,0,0,.25)); }
 #motorcycle svg { display: block; width: 100%; fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; stroke-width: 4; }
+#motorcycle svg .leaning-body { transform-box: view-box; transform-origin: 120px 91px; transition: transform .35s ease; }
 #motorcycle svg .wheel { fill: #272a29; stroke: #f5f1e6; stroke-width: 3; } #motorcycle svg .hub { fill: #d7d2c5; stroke: #272a29; stroke-width: 2; }
-#motorcycle svg .wheel-spin { fill: none; stroke: #b7b8ae; stroke-width: 2; opacity: .85; transform-box: view-box; } #motorcycle.is-moving svg .rear-wheel-spin { animation: wheel-spin .42s linear infinite; transform-origin: 48px 91px; } #motorcycle.is-moving svg .front-wheel-spin { animation: wheel-spin .42s linear infinite; transform-origin: 190px 91px; }
+#motorcycle svg .wheel-spin { fill: none; stroke: #b7b8ae; stroke-width: 2; opacity: .85; transform-box: view-box; } #motorcycle.is-moving svg .wheel-spin { animation: none; }
 @keyframes wheel-spin { to { transform: rotate(360deg); } }
 #motorcycle svg .tank { fill: #f4f1e8; stroke: var(--ink); } #motorcycle svg .fairing { fill: #20221f; stroke: var(--ink); } #motorcycle svg .accent-panel { fill: var(--orange); stroke: var(--orange-dark); } #motorcycle svg .stripe { fill: #f4f1e8; stroke: #f4f1e8; }
 #motorcycle svg .seat { fill: #272a29; stroke: #272a29; } #motorcycle svg .monoshock { stroke: #d7d2c5; stroke-width: 4; } #motorcycle svg .monoshock-spring { stroke: var(--orange); stroke-width: 2; } #motorcycle svg .fork { stroke: #d5d1c4; } #motorcycle svg .exhaust { fill: #9c9d94; stroke: #555b58; } #motorcycle svg .head-lamp { fill: #e9d47c; stroke: #bb9e44; } #motorcycle svg .head-lamp-bulb, #motorcycle svg .running-light { fill: #fff4b0; stroke: #fff8d1; stroke-width: 2; filter: drop-shadow(0 0 4px #f4d56f); } #motorcycle svg .running-light { stroke-width: 1; } #motorcycle svg .tail-light { fill: #7d241c; stroke: #5b1712; }
@@ -154,6 +155,24 @@ body[data-road="track"] .road-post { border-top-color: #d8d2c0; }
 @media (max-width: 430px) { .site-header h1 { max-width: 260px; font-size: 28px; } .header-copy { max-width: 250px; font-size: 14px; line-height: 1.35; } .panel { padding: 19px 16px; } .telemetry { grid-template-columns: repeat(2, 1fr); } .telemetry strong { font-size: 17px; } .sensor-grid { grid-template-columns: repeat(2, 1fr); } .sensor-grid strong { font-size: 13px; } .road { height: 205px; } #motorcycle { width: 132px; } .results { grid-template-columns: 1fr 1fr; gap: 7px; } .result-card { padding: 14px 11px; } .result-card p { font-size: 24px; } }
 .site-footer { padding: 0 24px 28px; color: var(--muted); text-align: center; font: 10px 'DM Mono', monospace; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+/* Warm braking accent with a cooler secondary signal color. */
+.hero-art, .story-section { background: #3f6972; }
+.hero h1 em, .sensor-story h2 em { color: #e3a184; }
+.hero .eyebrow { color: #e3a184; }
+.hero-button:hover { background: var(--orange); }
+.art-track::before, .track-curb { background: repeating-linear-gradient(90deg, #f4f1e8 0 13px, var(--orange) 13px 26px); }
+.track-banner { background-color: var(--orange); }
+#motorcycle svg .accent-panel { fill: var(--orange); stroke: var(--orange-dark); }
+#motorcycle svg .tone-ring { stroke: var(--orange); }
+#motorcycle svg .caliper, #motorcycle svg .rear-caliper { fill: var(--orange); }
+#motorcycle svg .hydraulic-line, #motorcycle svg .rear-hydraulic { stroke: var(--orange); }
+#brakeImpressions span { background: var(--orange); }
+.hero-ticker span::after { color: var(--orange); }
+.study-note-mark, .sensor-story .eyebrow, .sensor-story-data li span, .technical-index, .stack-strip > span { color: var(--orange-dark); }
+#motorcycle.is-braking svg .tail-light { fill: var(--orange); stroke: #f0b29b; filter: drop-shadow(0 0 5px var(--orange)); }
+.status-pill.is-complete { transition: color .2s ease, background-color .2s ease; }
+#motorcycle.is-fallen { transform: translateY(-8%) rotate(82deg) !important; transform-origin: 48% 78%; transition: transform .45s ease-in; filter: drop-shadow(8px 10px 4px rgba(0,0,0,.22)); }
 
 /* Editorial shell: original visual system for Brake Lab. */
 html { scroll-behavior: smooth; }
