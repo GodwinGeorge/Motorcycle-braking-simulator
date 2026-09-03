@@ -209,6 +209,8 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     const leanLimit = Math.atan(0.62 / cgHeight) * 180 / Math.PI;
     const requestedFront = brakeForce * frontBrakeBias / 100;
     const requestedRear = brakeForce - requestedFront;
+    const maxBrakeForce = friction * mass * g * grip;
+    const manualScale = brakeForce > maxBrakeForce ? maxBrakeForce * 0.7 / brakeForce : 1;
     const sensorStep = Math.max(1, Math.round((1 / sensorRate) / dt));
     const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
     const noise = (seed, amplitude = sensorNoise) => (Math.sin(seed * 12.9898 + 78.233) * 43758.5453 % 1 - 0.5) * 2 * amplitude;
@@ -235,10 +237,10 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
         const rearLoad = mass * g - frontLoad;
         const frontLimit = friction * grip * frontLoad;
         const rearLimit = friction * grip * Math.max(0, rearLoad);
-        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) / 0.08, 0.2, 1) : (requestedFront > frontLimit ? 0.7 : 1);
-        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) / 0.08, 0.2, 1) : (requestedRear > rearLimit ? 0.7 : 1);
-        actualFrontForce = Math.min(requestedFront * frontScale, frontLimit);
-        actualRearForce = Math.min(requestedRear * rearScale, rearLimit);
+        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) * 1.5, 0.7, 1) : (requestedFront > frontLimit ? 0.7 : 1);
+        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) * 1.5, 0.7, 1) : (requestedRear > rearLimit ? 0.7 : 1);
+        actualFrontForce = absEnabled ? Math.min(requestedFront * frontScale, frontLimit) : requestedFront * manualScale;
+        actualRearForce = absEnabled ? Math.min(requestedRear * rearScale, rearLimit) : requestedRear * manualScale;
         absActive = absActive || frontScale < 0.999 || rearScale < 0.999;
         const actualBrakeForce = actualFrontForce + actualRearForce;
         const acceleration = -actualBrakeForce / mass;
