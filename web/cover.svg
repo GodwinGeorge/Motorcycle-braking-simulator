@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">The Study Lab motorcycle braking simulator</title>
+  <desc id="description">A motorcycle braking study with interactive physics, sensor fusion, and dual channel ABS.</desc>
+  <rect width="1600" height="900" fill="#20221f"/>
+  <rect x="0" y="0" width="1600" height="70" fill="#20221f" stroke="#3b3e39"/>
+  <text x="70" y="44" fill="#fffdf8" font-family="monospace" font-size="22" font-weight="700" letter-spacing="2">THE<tspan fill="#c76545"> STUDY LAB</tspan></text>
+  <text x="70" y="230" fill="#e3a184" font-family="monospace" font-size="16" font-weight="700" letter-spacing="3">PERSONAL STUDY / MOTORCYCLE DYNAMICS</text>
+  <text x="70" y="340" fill="#fffdf8" font-family="sans-serif" font-size="94" font-weight="500">Know your</text>
+  <text x="70" y="435" fill="#e3a184" font-family="Georgia, serif" font-size="98" font-style="italic">stopping point.</text>
+  <text x="74" y="510" fill="#c4c7be" font-family="sans-serif" font-size="23">Experiment with speed, grip, lean, wheel radius</text>
+  <text x="74" y="545" fill="#c4c7be" font-family="sans-serif" font-size="23">and dual-channel ABS in a live physics model.</text>
+  <rect x="74" y="600" width="210" height="58" fill="#f4f0e6"/>
+  <text x="99" y="636" fill="#20221f" font-family="monospace" font-size="15" font-weight="700">RUN A STOP  -&gt;</text>
+  <rect x="820" y="70" width="780" height="830" fill="#3f6972"/>
+  <g opacity=".25" fill="#f8df9c">
+    <circle cx="900" cy="150" r="4"/><circle cx="1020" cy="150" r="4"/><circle cx="1140" cy="150" r="4"/><circle cx="1260" cy="150" r="4"/><circle cx="1380" cy="150" r="4"/>
+    <circle cx="900" cy="270" r="4"/><circle cx="1020" cy="270" r="4"/><circle cx="1140" cy="270" r="4"/><circle cx="1260" cy="270" r="4"/><circle cx="1380" cy="270" r="4"/>
+    <circle cx="900" cy="390" r="4"/><circle cx="1020" cy="390" r="4"/><circle cx="1140" cy="390" r="4"/><circle cx="1260" cy="390" r="4"/><circle cx="1380" cy="390" r="4"/>
+    <circle cx="900" cy="510" r="4"/><circle cx="1020" cy="510" r="4"/><circle cx="1140" cy="510" r="4"/><circle cx="1260" cy="510" r="4"/><circle cx="1380" cy="510" r="4"/>
+  </g>
+  <circle cx="1370" cy="190" r="105" fill="#f8df9c" opacity=".95"/>
+  <circle cx="1370" cy="190" r="125" fill="none" stroke="#f8df9c" stroke-width="20" opacity=".16"/>
+  <path d="M820 690 L1600 690 L1600 900 L820 900 Z" fill="#252925"/>
+  <path d="M900 820 L1500 760" stroke="#f8df9c" stroke-width="8" stroke-dasharray="60 38" opacity=".9"/>
+  <g transform="translate(1010 470) scale(1.9)" fill="none" stroke="#fffdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="48" cy="91" r="24"/><circle cx="190" cy="91" r="24"/>
+    <path d="M48 70v42M27 91h42M190 70v42M169 91h42M80 49c6-17 20-24 43-18l20 20-14 19H92zM127 47h37l17 19-26 11-31-12zM84 35h38l16 11H91zM164 47l26 44M172 47l18 44M159 23h25l8 6M112 78h62l15 11h-62z"/>
+    <path d="M93 48h35l-11 22H83z" fill="#c76545" stroke="#c76545"/>
+  </g>
+  <rect x="0" y="850" width="1600" height="50" fill="#f8df9c"/>
+  <text x="70" y="882" fill="#20221f" font-family="monospace" font-size="15" letter-spacing="2">READ THE ROAD</text>
+  <text x="480" y="882" fill="#c76545" font-family="monospace" font-size="15">*</text>
+  <text x="560" y="882" fill="#20221f" font-family="monospace" font-size="15" letter-spacing="2">FEEL THE LOAD</text>
+  <text x="1010" y="882" fill="#c76545" font-family="monospace" font-size="15">*</text>
+  <text x="1090" y="882" fill="#20221f" font-family="monospace" font-size="15" letter-spacing="2">UNDERSTAND THE STOP</text>
+</svg>
