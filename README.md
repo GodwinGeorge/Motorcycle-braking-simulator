@@ -1,4 +1,4 @@
-🏍️ Motorcycle Braking Simulator 🖥️ 
+The Study Lab - Motorcycle Braking Simulator
 
 A web-based motorcycle braking study that explores braking force, deceleration, stopping time, stopping distance, sensor telemetry, load transfer, lean angle, and a simplified dual-channel ABS controller.
 
@@ -14,19 +14,21 @@ https://godwingeorge.github.io/Motorcycle-braking-simulator/
 
 ## Using the GUI
 
-Open the live demo, 
-1. Choose Motorcycle mode: City Ride, Wet Road, or Track Day.
+Open the live demo:
+1. Choose a road profile: City, Wet, or Track.
 2. Adjust motorcycle mass, initial speed, road friction, and brake force.
 3. Select Run Simulation.
 4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
-5. Review stopping time, distance, deceleration, and actual brake force in the result cards.
+5. Review stopping time, stopping distance, average deceleration, and actual brake force in the result cards.
 
 The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI uses the deployed API when available and falls back to the browser model, including sensor telemetry, when the API is unavailable.
 
 
 ## Publishing the GUI
 
-The published webpage is served from the `gh-pages` branch. After changing files in `web/`, copy the updated `web/index.html`, `web/scripts.js`, and `web/style.css` to the root of that branch, commit, and push it. GitHub Pages may take a short time to refresh after the push.
+The published webpage is served from the `gh-pages` branch. The published root contains copies of `web/index.html`, `web/scripts.js`, `web/style.css`, `web/cover.svg`, and `web/cover.png`. After changing these files, copy the updated assets to the root of `gh-pages`, commit, and push. GitHub Pages may take a short time to refresh.
+
+Pushing to `master` runs `.github/workflows/deploy-cf.yml`, which publishes `workers/simulate/index.js` to Cloudflare Workers using the `CF_API_TOKEN` repository secret.
 
 ---
 
@@ -56,8 +58,8 @@ where:
 
 - $F_{grip}$ = total available tyre-road braking force
 - $\mu$ = coefficient of friction
-- m = vehicle mass
-- g = gravitational acceleration
+- $m$ = vehicle mass
+- $g$ = gravitational acceleration
 - $\theta$ = lean angle
 
 The requested brake force is split by front brake bias. Forward load transfer changes the axle loads, and each channel is limited by its available grip. In Dual ABS mode, wheel-speed slip feedback reduces a channel when its estimated slip exceeds the target range. Manual mode models reduced usable grip during wheel lock.
@@ -80,15 +82,11 @@ Stopping time
 
 For a constant-deceleration special case only:
 
-[
-t = \frac{v_0}{|a|}
-]
+$$t = \frac{v_0}{|a|}$$
 
 Stopping distance
 
-[
-d = \frac{v_0^2}{2|a|}
-]
+$$d = \frac{v_0^2}{2|a|}$$
 
 The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
 
@@ -98,10 +96,10 @@ where $r$ is wheel radius. The model reports a fall when $\theta > \theta_{limit
 
 where:
 
-- v_0 = initial velocity
-- a = braking deceleration
-- t = stopping time
-- d = stopping distance
+- $v_0$ = initial velocity
+- $a$ = braking deceleration
+- $t$ = stopping time
+- $d$ = stopping distance
 
 ---
 
@@ -133,6 +131,10 @@ where:
 
 The repository also contains a C++ implementation using Crow, which can be used as a local backend.
 
+The hosted frontend calls the Cloudflare Worker at:
+
+`https://vehicle-braking-worker.godwin-veh-sim.workers.dev/simulate`
+
 ---
 
 📁 Project Structure
@@ -141,12 +143,14 @@ Motorcycle-braking-simulator/
 │
 ├── src/
 │   ├── VehicleModel.cpp
-│   └── VehicleModel.h
+│   └── vehicleModel.hpp
 │
 ├── web/
 │   ├── index.html
 │   ├── scripts.js
-│   └── style.css
+│   ├── style.css
+│   ├── cover.svg
+│   └── cover.png
 │
 ├── workers/
 │   └── simulate/
@@ -159,7 +163,6 @@ Motorcycle-braking-simulator/
 │   └── functions/
 │       └── simulate.js
 │
-├── cpp_server.cpp
 ├── CMakeLists.txt
 ├── README.md
 └── ...
@@ -168,7 +171,7 @@ Motorcycle-braking-simulator/
 
 Contains the motorcycle/braking physics implementation.
 
-"cpp_server.cpp"
+"src/main.cpp"
 
 Implements the local HTTP server using Crow and exposes the simulation through a REST endpoint.
 
@@ -232,46 +235,60 @@ Calculates braking performance for the supplied vehicle parameters.
 Request
 
 {
-  "mass": 1500,
-  "initialSpeed": 100,
-  "frictionCoefficient": 0.7,
-  "brakeForce": 10000
+  "mass": 200,
+  "speed": 80,
+  "friction": 0.8,
+  "brakeForce": 5000,
+  "sensorRate": 100,
+  "sensorNoise": 0.02,
+  "gpsNoise": 1.5,
+  "wheelRadius": 0.31,
+  "leanAngle": 0,
+  "frontBrakeBias": 70,
+  "absEnabled": true
 }
 
-Response
+Response (core fields)
 
 {
-  "actualBrakeForce": 10000,
-  "deceleration": -6.6666666667,
-  "stoppingDistance": 57.8703703704,
-  "stoppingTime": 4.1666666667
+  "actualBrakeForce": 1569.6,
+  "deceleration": -6.80,
+  "stoppingDistance": 31.46,
+  "stoppingTime": 2.84,
+  "absActive": true,
+  "leanLimit": 45.0,
+  "fallen": false,
+  "frontBrakeForce": 973.15,
+  "rearBrakeForce": 596.45
 }
+
+The Cloudflare response includes `sensors` and `trajectory` arrays. The C++ response uses `sensors` and `data`. These recorded samples drive browser playback and the velocity graph.
 
 
 
 🧪 Example
 
-For a vehicle with:
+For the default motorcycle setup:
 
-Mass                  = 1500 kg
-Initial speed         = 100 km/h
-Friction coefficient  = 0.7
-Brake force           = 10000 N
+Mass                  = 200 kg
+Initial speed         = 80 km/h
+Friction coefficient  = 0.8
+Brake force           = 5000 N
 
-the simulator determines whether the requested braking force exceeds the available tyre-road friction.
+the simulator determines whether the requested braking force exceeds the available tyre-road friction and axle limits.
 
-The final braking force is then used to calculate the vehicle's deceleration and stopping performance.
+The permitted front and rear forces are integrated over time to calculate deceleration, stopping time, and stopping distance.
 
 ---
 
 
 👨‍💻 Author
 
-Godwin George
+The Study Lab
 
 
 📜 License
 
-This project is intended for learning, experimentation, and personal knowledge improvemens.
+This project is intended for learning, experimentation, and personal knowledge improvement.
 
 See the repository license for usage and distribution terms.
