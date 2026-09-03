@@ -289,8 +289,7 @@ The braking acceleration uses $a=-(F_{front}+F_{rear})/m_{eff}$. This is a simpl
 
 
 👨‍💻 Author
-
-The Study Lab
+Godwin George 
 
 
 📜 License
