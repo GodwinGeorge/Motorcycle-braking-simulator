@@ -235,8 +235,8 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
         const rearLoad = mass * g - frontLoad;
         const frontLimit = friction * grip * frontLoad;
         const rearLimit = friction * grip * Math.max(0, rearLoad);
-        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) / 0.08, 0.2, 1) : (requestedFront > frontLimit ? 0.7 : 1);
-        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) / 0.08, 0.2, 1) : (requestedRear > rearLimit ? 0.7 : 1);
+        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) * 1.5, 0.7, 1) : (requestedFront > frontLimit ? 0.7 : 1);
+        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) * 1.5, 0.7, 1) : (requestedRear > rearLimit ? 0.7 : 1);
         actualFrontForce = Math.min(requestedFront * frontScale, frontLimit);
         actualRearForce = Math.min(requestedRear * rearScale, rearLimit);
         absActive = absActive || frontScale < 0.999 || rearScale < 0.999;

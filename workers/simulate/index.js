@@ -109,8 +109,8 @@ async function handleRequest(request) {
     const rearLoad = mass * g - frontLoad
     const frontLimit = friction * leanGrip * frontLoad
     const rearLimit = friction * leanGrip * Math.max(0, rearLoad)
-    const frontScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipFront - 0.1) / 0.08, 0.2, 1) : (requestedFrontForce > frontLimit ? 0.7 : 1)
-    const rearScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipRear - 0.1) / 0.08, 0.2, 1) : (requestedRearForce > rearLimit ? 0.7 : 1)
+    const frontScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipFront - 0.1) * 1.5, 0.7, 1) : (requestedFrontForce > frontLimit ? 0.7 : 1)
+    const rearScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipRear - 0.1) * 1.5, 0.7, 1) : (requestedRearForce > rearLimit ? 0.7 : 1)
     actualFrontForce = Math.min(requestedFrontForce * frontScale, frontLimit)
     actualRearForce = Math.min(requestedRearForce * rearScale, rearLimit)
     absActive = absActive || frontScale < 0.999 || rearScale < 0.999

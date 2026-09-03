@@ -157,15 +157,16 @@ int main()
             const double rearLoad = mass * GRAVITY - frontLoad;
             const double frontLimit = friction * leanGrip * frontLoad;
             const double rearLimit = friction * leanGrip * rearLoad;
+            const double manualScale = brakeForce > maximumBrakeForce
+                ? maximumBrakeForce * 0.7 / brakeForce
+                : 1.0;
             const double actualFrontForce = absEnabled
                 ? std::min(requestedFrontForce, frontLimit)
-                : (requestedFrontForce > frontLimit ? requestedFrontForce * 0.7 : requestedFrontForce);
+                : requestedFrontForce * manualScale;
             const double actualRearForce = absEnabled
                 ? std::min(requestedRearForce, rearLimit)
-                : (requestedRearForce > rearLimit ? requestedRearForce * 0.7 : requestedRearForce);
-            const double actualBrakeForce = absEnabled
-                ? std::min(actualFrontForce + actualRearForce, maximumBrakeForce)
-                : std::min(brakeForce, maximumBrakeForce * 0.7);
+                : requestedRearForce * manualScale;
+            const double actualBrakeForce = std::min(actualFrontForce + actualRearForce, maximumBrakeForce);
             const bool absActive = absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce);
 
             VehicleModel vehicle(
