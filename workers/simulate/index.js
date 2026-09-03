@@ -74,6 +74,7 @@ async function handleRequest(request) {
   const maxBrakeForce = friction * mass * g * leanGrip
   const requestedFrontForce = brakeForce * frontBrakeBias / 100
   const requestedRearForce = brakeForce - requestedFrontForce
+  const manualScale = brakeForce > maxBrakeForce ? maxBrakeForce * 0.7 / brakeForce : 1
   const sensors = []
   const trajectory = [{ time: 0, velocity: v0, position: 0, acceleration: 0 }]
   const sampleInterval = 1 / sensorRate
@@ -111,8 +112,12 @@ async function handleRequest(request) {
     const rearLimit = friction * leanGrip * Math.max(0, rearLoad)
     const frontScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipFront - 0.1) * 1.5, 0.7, 1) : (requestedFrontForce > frontLimit ? 0.7 : 1)
     const rearScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipRear - 0.1) * 1.5, 0.7, 1) : (requestedRearForce > rearLimit ? 0.7 : 1)
-    actualFrontForce = Math.min(requestedFrontForce * frontScale, frontLimit)
-    actualRearForce = Math.min(requestedRearForce * rearScale, rearLimit)
+    actualFrontForce = absEnabled
+      ? Math.min(requestedFrontForce * frontScale, frontLimit)
+      : requestedFrontForce * manualScale
+    actualRearForce = absEnabled
+      ? Math.min(requestedRearForce * rearScale, rearLimit)
+      : requestedRearForce * manualScale
     absActive = absActive || frontScale < 0.999 || rearScale < 0.999
     const actualBrakeForce = actualFrontForce + actualRearForce
     const acceleration = -actualBrakeForce / mass
