@@ -21,7 +21,7 @@ Open the live demo,
 4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
 5. Review stopping time, distance, deceleration, and actual brake force in the result cards.
 
-The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI still requires the deployed API until the sensor response is added to the publishing adapters.
+The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI uses the deployed API when available and falls back to the browser model, including sensor telemetry, when the API is unavailable.
 
 
 ## Publishing the GUI
@@ -48,42 +48,37 @@ Motorcycle-specific study inputs include lean-angle grip reduction, approximate 
 
 Maximum tyre-road braking force
 
-The maximum available braking force is calculated using:
+The maximum available braking force first accounts for lean angle:
 
-[
-F_{max} = \mu m g
-]
+$$F_{grip} = \mu m g \max(0.05, \cos(\theta))$$
 
 where:
 
-- F_{max} = maximum available braking force
-- \mu = coefficient of friction
+- $F_{grip}$ = total available tyre-road braking force
+- $\mu$ = coefficient of friction
 - m = vehicle mass
 - g = gravitational acceleration
+- $\theta$ = lean angle
 
-The actual braking force is limited by the available tyre-road friction:
+The requested brake force is split by front brake bias. Forward load transfer changes the axle loads, and each channel is limited by its available grip. In Dual ABS mode, wheel-speed slip feedback reduces a channel when its estimated slip exceeds the target range. Manual mode models reduced usable grip during wheel lock.
 
-[
-F_{actual} = \min(F_{brake}, F_{max})
-]
+$$F_{front} \leq \mu N_{front}\max(0.05, \cos(\theta)), \qquad F_{rear} \leq \mu N_{rear}\max(0.05, \cos(\theta))$$
 
 Vehicle deceleration
 
-Using Newton's second law:
+Using Newton's second law at each simulation step:
 
-[
-a = \frac{F_{actual}}{m}
-]
+$$a_k = -\frac{F_{front,k}+F_{rear,k}}{m}$$
 
-During braking, the acceleration is negative:
+The state is integrated with timestep $\Delta t$:
 
-[
-a = -\frac{F_{actual}}{m}
-]
+$$v_{k+1}=\max(0,v_k+a_k\Delta t)$$
+
+$$x_{k+1}=x_k+v_k\Delta t+\frac{1}{2}a_k\Delta t^2$$
 
 Stopping time
 
-For constant deceleration:
+For a constant-deceleration special case only:
 
 [
 t = \frac{v_0}{|a|}
@@ -94,6 +89,12 @@ Stopping distance
 [
 d = \frac{v_0^2}{2|a|}
 ]
+
+The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
+
+$$h_{CG}=0.62+(r-0.31), \qquad \theta_{limit}=\tan^{-1}\left(\frac{0.62}{h_{CG}}\right)$$
+
+where $r$ is wheel radius. The model reports a fall when $\theta > \theta_{limit}$. This is an educational stability heuristic, not a complete motorcycle rollover model; it does not model wheelbase, steering, suspension, or lateral tyre-force sharing.
 
 where:
 

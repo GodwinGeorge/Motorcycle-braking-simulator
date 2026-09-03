@@ -191,62 +191,156 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     const sensors = Array.isArray(json.sensors) && json.sensors.length
         ? json.sensors
         : buildBrowserSimulation(payload).sensors;
-    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate);
-    drawGraph(initialSpeed, deceleration, stoppingTime);
+    const trajectory = Array.isArray(json.trajectory) && json.trajectory.length
+        ? json.trajectory
+        : Array.isArray(json.data) && json.data.length
+            ? json.data
+        : buildBrowserSimulation(payload).trajectory;
+    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate, payload, json.leanLimit, trajectory);
+    drawGraph(initialSpeed, deceleration, stoppingTime, trajectory);
 }
 
 function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, absEnabled = true }) {
     const initialSpeed = speed / 3.6;
+    const g = 9.81;
+    const dt = 0.01;
     const grip = Math.max(0.05, Math.cos(leanAngle * Math.PI / 180));
-    const normalForce = friction * mass * 9.81 * grip;
-    const frontLimit = normalForce * (0.5 + Math.min(0.25, decelerationGuess(brakeForce, mass) * 0.02));
-    const rearLimit = Math.max(0, normalForce - frontLimit);
+    const cgHeight = 0.62 + (wheelRadius - 0.31);
+    const leanLimit = Math.atan(0.62 / cgHeight) * 180 / Math.PI;
     const requestedFront = brakeForce * frontBrakeBias / 100;
     const requestedRear = brakeForce - requestedFront;
-    const actualFront = absEnabled ? Math.min(requestedFront, frontLimit) : requestedFront;
-    const actualRear = absEnabled ? Math.min(requestedRear, rearLimit) : requestedRear;
-    const actualBrakeForce = Math.min(actualFront + actualRear, normalForce);
-    const deceleration = actualBrakeForce / mass;
-    const stoppingTime = initialSpeed / deceleration;
-    const stoppingDistance = (initialSpeed * initialSpeed) / (2 * deceleration);
-    const interval = 1 / sensorRate;
-    const sensors = Array.from({ length: Math.ceil(stoppingTime / interval) }, (_, index) => {
-        const time = Math.min((index + 1) * interval, stoppingTime);
-        const velocity = Math.max(0, initialSpeed - deceleration * time);
-        const position = Math.max(0, initialSpeed * time - 0.5 * deceleration * time * time);
-        const wobble = Math.sin(index * 12.9898) * sensorNoise;
-        const positionWobble = Math.sin(index * 8.13) * gpsNoise;
-        return {
-            frontWheelSpeed: Math.max(0, velocity * 1.12 / wheelRadius + wobble), rearWheelSpeed: Math.max(0, velocity * .92 / wheelRadius + wobble),
-            longitudinalAcceleration: -deceleration + wobble, pitchRate: -deceleration * .015 + wobble, yawRate: wobble * .1, rollRate: wobble * .1,
-            gpsSpeed: Math.max(0, velocity + wobble * .05), gpsLatitude: 51.5074 + positionWobble / 111111,
-            gpsLongitude: -0.1278 + (position + positionWobble) / 69400, gpsFix: true
-        };
-    });
-    return { stoppingTime, stoppingDistance, deceleration: -deceleration, actualBrakeForce, sensors, absActive: absEnabled && (actualFront < requestedFront || actualRear < requestedRear) };
-}
+    const sensorStep = Math.max(1, Math.round((1 / sensorRate) / dt));
+    const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+    const noise = (seed, amplitude = sensorNoise) => (Math.sin(seed * 12.9898 + 78.233) * 43758.5453 % 1 - 0.5) * 2 * amplitude;
+    const sensors = [];
+    const trajectory = [{ time: 0, velocity: initialSpeed, position: 0, acceleration: 0 }];
+    let velocity = initialSpeed;
+    let position = 0;
+    let time = 0;
+    let previousAcceleration = 0;
+    let fusedSpeed = initialSpeed;
+    let frontWheelSpeed = initialSpeed / wheelRadius;
+    let rearWheelSpeed = initialSpeed / wheelRadius;
+    let gpsLatitude = 51.5074;
+    let gpsLongitude = -0.1278;
+    let gpsSpeed = initialSpeed;
+    let actualFrontForce = 0;
+    let actualRearForce = 0;
+    let absActive = false;
 
-function decelerationGuess(brakeForce, mass) {
-    return mass > 0 ? brakeForce / mass : 0;
+    for (let step = 0; velocity > 0 && step < 30000; step += 1) {
+        const frontSlip = clamp(1 - frontWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3);
+        const rearSlip = clamp(1 - rearWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3);
+        const frontLoad = mass * g * (0.5 + clamp(Math.max(0, -previousAcceleration) / g * 0.12, 0, 0.12));
+        const rearLoad = mass * g - frontLoad;
+        const frontLimit = friction * grip * frontLoad;
+        const rearLimit = friction * grip * Math.max(0, rearLoad);
+        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) / 0.08, 0.2, 1) : (requestedFront > frontLimit ? 0.7 : 1);
+        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) / 0.08, 0.2, 1) : (requestedRear > rearLimit ? 0.7 : 1);
+        actualFrontForce = Math.min(requestedFront * frontScale, frontLimit);
+        actualRearForce = Math.min(requestedRear * rearScale, rearLimit);
+        absActive = absActive || frontScale < 0.999 || rearScale < 0.999;
+        const actualBrakeForce = actualFrontForce + actualRearForce;
+        const acceleration = -actualBrakeForce / mass;
+        position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt);
+        velocity = Math.max(0, velocity + acceleration * dt);
+        time += dt;
+        previousAcceleration = acceleration;
+        trajectory.push({ time, velocity, position, acceleration });
+        const frontWheelSlip = requestedFront > frontLimit ? clamp((requestedFront - frontLimit) / requestedFront, 0, 0.25) : 0;
+        const rearWheelSlip = requestedRear > rearLimit ? clamp((requestedRear - rearLimit) / requestedRear, 0, 0.25) : 0;
+        frontWheelSpeed = Math.max(0, velocity * (1 - frontWheelSlip) / wheelRadius + noise(step + 1));
+        rearWheelSpeed = Math.max(0, velocity * (1 - rearWheelSlip) / wheelRadius + noise(step + 2));
+        const imuAcceleration = acceleration + noise(step + 3);
+        fusedSpeed = Math.max(0, fusedSpeed + imuAcceleration * dt);
+        if (step % 100 === 0) {
+            const positionNoise = noise(step + 1000, gpsNoise);
+            gpsLatitude = 51.5074 + positionNoise / 111111;
+            gpsLongitude = -0.1278 + (position + positionNoise) / 69400;
+            gpsSpeed = Math.max(0, velocity + noise(step + 2000, gpsNoise) * 0.05);
+            fusedSpeed = 0.85 * fusedSpeed + 0.15 * gpsSpeed;
+        }
+        if (step % sensorStep === 0 || sensors.length === 0) {
+            sensors.push({
+                frontWheelSpeed, rearWheelSpeed, longitudinalAcceleration: imuAcceleration,
+                pitchRate: -Math.abs(acceleration) * 0.015 + noise(step + 7) * 0.1,
+                yawRate: noise(step + 8) * 0.1, rollRate: noise(step + 6) * 0.1,
+                gpsSpeed, gpsLatitude, gpsLongitude, gpsFix: true
+            });
+        }
+    }
+    const actualBrakeForce = actualFrontForce + actualRearForce;
+    const deceleration = position > 0 ? (initialSpeed * initialSpeed) / (2 * position) : 0;
+    return { stoppingTime: time, stoppingDistance: position, deceleration: -deceleration, actualBrakeForce, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
 
 checkCloudflareConnection();
 
-function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate) {
+function updateMotorcycleWheels(wheelRadius) {
+    const scale = wheelRadius / 0.31;
+    const wheelGeometry = [
+        [".rear-wheel-spin, .rear-disc, .rear-tone-ring", 48, 91],
+        [".front-wheel-spin, .brake-disc:not(.rear-disc)", 190, 91]
+    ];
+    motorcycle.querySelectorAll(".wheel").forEach((wheel, index) => {
+        wheel.setAttribute("r", String(24 * scale));
+        wheel.style.transformBox = "view-box";
+        wheel.style.transformOrigin = `${index === 0 ? 48 : 190}px 91px`;
+        wheel.style.transform = "";
+    });
+    motorcycle.querySelectorAll(".hub").forEach((hub, index) => {
+        hub.setAttribute("r", String(7 * scale));
+        hub.style.transformBox = "view-box";
+        hub.style.transformOrigin = `${index === 0 ? 48 : 190}px 91px`;
+        hub.style.transform = "";
+    });
+    wheelGeometry.forEach(([selector, x, y]) => {
+        motorcycle.querySelectorAll(selector).forEach((part) => {
+            part.style.transformBox = "view-box";
+            part.style.transformOrigin = `${x}px ${y}px`;
+            part.dataset.wheelScale = scale;
+        });
+    });
+}
+
+function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate, payload, leanLimit, trajectory) {
     status.textContent = "Braking...";
     status.className = "status-pill is-running";
     motorcycle.style.left = "20px";
+    motorcycle.style.transform = "translateY(-50%)";
+    const visualLean = Math.min(payload.leanAngle, 45) * 0.18;
+    motorcycle.querySelector(".leaning-body").style.transform = `rotateZ(${visualLean}deg)`;
+    updateMotorcycleWheels(payload.wheelRadius);
+    motorcycle.classList.remove("is-fallen");
     motorcycle.classList.add("is-braking");
     motorcycle.classList.add("is-moving");
     brakeImpressions.classList.remove("is-visible");
 
     const startTime = performance.now();
+    let wheelRotation = 0;
+    let previousPosition = 0;
 
     function animationFrame(currentTime) {
         const elapsed = (currentTime - startTime) / 1000;
         const t = Math.min(elapsed, stoppingTime);
 
-        const position = initialSpeed * t - 0.5 * deceleration * t * t;
+        if (payload.leanAngle > leanLimit && elapsed > Math.min(0.55, stoppingTime)) {
+            motorcycle.classList.remove("is-braking", "is-moving");
+            motorcycle.classList.add("is-fallen");
+            status.textContent = "Fallen";
+            status.className = "status-pill is-complete";
+            return;
+        }
+
+        const sampleIndex = Math.min(Math.floor((t / stoppingTime) * (trajectory.length - 1)), trajectory.length - 1);
+        const sample = trajectory[Math.max(0, sampleIndex)] || trajectory[trajectory.length - 1];
+        const position = sample.position;
+        const wheelRadius = Number(payload.wheelRadius) || 0.31;
+        wheelRotation += Math.max(0, position - previousPosition) / wheelRadius;
+        previousPosition = position;
+        motorcycle.querySelectorAll(".wheel-spin").forEach((wheel) => {
+            wheel.style.transform = `rotate(${wheelRotation}rad) scale(${wheel.dataset.wheelScale || 1})`;
+        });
 
         const denom = initialSpeed * stoppingTime - 0.5 * deceleration * stoppingTime * stoppingTime;
         const normalizedPosition = denom > 0 ? position / denom : 0;
@@ -256,7 +350,7 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
 
         const x = 20 + normalizedPosition * (roadWidth - motorcycleWidth - 80);
         motorcycle.style.left = `${x}px`;
-        telemetry.velocity.innerHTML = `${(Math.max(initialSpeed - deceleration * t, 0) * 3.6).toFixed(1)} <small>km/h</small>`;
+        telemetry.velocity.innerHTML = `${(Math.max(sample.velocity, 0) * 3.6).toFixed(1)} <small>km/h</small>`;
         telemetry.distance.innerHTML = `${Math.max(position, 0).toFixed(1)} <small>m</small>`;
         telemetry.time.innerHTML = `${t.toFixed(2)} <small>s</small>`;
         telemetry.force.innerHTML = `${actualBrakeForce.toFixed(0)} <small>N</small>`;
@@ -290,7 +384,7 @@ function updateSensorReadout(sample, index, total) {
     sensorTelemetry.sampleLabel.textContent = `${index + 1} / ${total} samples`;
 }
 
-function drawGraph(initialSpeed, deceleration, stoppingTime) {
+function drawGraph(initialSpeed, deceleration, stoppingTime, trajectory) {
     const canvas = document.getElementById("velocityGraph");
     const ctx = canvas.getContext("2d");
 
@@ -317,8 +411,9 @@ function drawGraph(initialSpeed, deceleration, stoppingTime) {
 
         ctx.beginPath();
         for (let i = 0; i <= Math.max(1, Math.round(progress * 100)); i++) {
-            const t = stoppingTime * i / 100;
-            const velocity = Math.max(initialSpeed - deceleration * t, 0);
+            const sample = trajectory[Math.min(Math.floor(i / 100 * (trajectory.length - 1)), trajectory.length - 1)];
+            const t = sample.time;
+            const velocity = Math.max(sample.velocity, 0);
             const x = (t / stoppingTime) * plotWidth + padding.left;
             const y = padding.top + plotHeight - (velocity / initialSpeed) * plotHeight;
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);

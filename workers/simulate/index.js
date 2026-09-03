@@ -57,6 +57,11 @@ async function handleRequest(request) {
   const leanAngle = Math.min(Math.max(numberOr(data.leanAngle, 0), 0), 60)
   const frontBrakeBias = Math.min(Math.max(numberOr(data.frontBrakeBias, 70), 0), 100)
   const absEnabled = data.absEnabled !== false
+  const referenceRadius = 0.31
+  const referenceCgHeight = 0.62
+  const cgHeight = referenceCgHeight + (wheelRadius - referenceRadius)
+  const leanLimit = Math.atan(referenceCgHeight / cgHeight) * 180 / Math.PI
+  const fallen = leanAngle > leanLimit
 
   if (mass <= 0 || speed_kmh <= 0 || friction <= 0 || brakeForce <= 0) {
     return jsonResponse({ error: 'Mass, speed, friction, and brake force must be greater than zero.' }, 422)
@@ -64,82 +69,109 @@ async function handleRequest(request) {
 
   const g = 9.81
   const v0 = speed_kmh / 3.6
+  const dt = 0.01
   const leanGrip = Math.max(0.05, Math.cos(leanAngle * Math.PI / 180))
   const maxBrakeForce = friction * mass * g * leanGrip
   const requestedFrontForce = brakeForce * frontBrakeBias / 100
   const requestedRearForce = brakeForce - requestedFrontForce
-  let actualFrontForce = requestedFrontForce
-  let actualRearForce = requestedRearForce
-  for (let iteration = 0; iteration < 3; iteration += 1) {
-    const totalForce = actualFrontForce + actualRearForce
-    const decelEstimate = totalForce / mass
-    const frontShare = Math.min(0.8, Math.max(0.5, 0.5 + decelEstimate * 0.02))
-    const frontLimit = maxBrakeForce * frontShare
-    const rearLimit = maxBrakeForce * (1 - frontShare)
-    actualFrontForce = absEnabled ? Math.min(requestedFrontForce, frontLimit) : requestedFrontForce
-    actualRearForce = absEnabled ? Math.min(requestedRearForce, rearLimit) : requestedRearForce
-  }
-  const actualBrakeForce = Math.min(actualFrontForce + actualRearForce, maxBrakeForce)
-  const deceleration = actualBrakeForce / mass
-
-  const stoppingTime = v0 / deceleration
-  const stoppingDistance = (v0 * v0) / (2.0 * deceleration)
-
   const sensors = []
+  const trajectory = [{ time: 0, velocity: v0, position: 0, acceleration: 0 }]
+  const sampleInterval = 1 / sensorRate
+  const sensorStep = Math.max(1, Math.round(sampleInterval / dt))
+  const gpsStep = Math.round(1 / dt)
+  let velocity = v0
+  let position = 0
+  let time = 0
+  let previousAcceleration = 0
+  let fusedSpeed = v0
   let gpsLatitude = 51.5074
   let gpsLongitude = -0.1278
   let gpsSpeed = v0
-  const sampleInterval = 1 / sensorRate
-  const sampleCount = Math.ceil(stoppingTime / sampleInterval)
+  let frontWheelSpeed = v0 / wheelRadius
+  let rearWheelSpeed = v0 / wheelRadius
+  let actualFrontForce = 0
+  let actualRearForce = 0
+  let absActive = false
 
-  // Deterministic noise keeps local and hosted runs repeatable for the same inputs.
-  const noise = (seed) => {
+  // Deterministic noise makes local and hosted runs repeatable for the same inputs.
+  const noise = (seed, amplitude = sensorNoise) => {
     const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
-    return (value - Math.floor(value) - 0.5) * 2 * sensorNoise
+    return (value - Math.floor(value) - 0.5) * 2 * amplitude
   }
+  const clamp = (value, low, high) => Math.min(high, Math.max(low, value))
 
-  for (let index = 0; index < sampleCount; index += 1) {
-    const time = Math.min((index + 1) * sampleInterval, stoppingTime)
-    const velocity = Math.max(v0 - deceleration * time, 0)
-    const position = Math.max(v0 * time - 0.5 * deceleration * time * time, 0)
-    const brakingRatio = deceleration > 0 ? Math.min(Math.abs(deceleration) / deceleration, 1) : 0
-    const gpsSample = index === 0 || Math.floor(time) !== Math.floor(Math.max(0, time - sampleInterval))
+  for (let step = 0; velocity > 0 && step < 30000; step += 1) {
+    const wheelReferenceSpeed = Math.max(frontWheelSpeed, rearWheelSpeed) * wheelRadius
+    const wheelSlipFront = clamp(1 - frontWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3)
+    const wheelSlipRear = clamp(1 - rearWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3)
+    const decelEstimate = Math.max(0, -previousAcceleration)
+    const frontLoad = mass * g * (0.5 + clamp(decelEstimate / g * 0.12, 0, 0.12))
+    const rearLoad = mass * g - frontLoad
+    const frontLimit = friction * leanGrip * frontLoad
+    const rearLimit = friction * leanGrip * Math.max(0, rearLoad)
+    const frontScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipFront - 0.1) / 0.08, 0.2, 1) : (requestedFrontForce > frontLimit ? 0.7 : 1)
+    const rearScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipRear - 0.1) / 0.08, 0.2, 1) : (requestedRearForce > rearLimit ? 0.7 : 1)
+    actualFrontForce = Math.min(requestedFrontForce * frontScale, frontLimit)
+    actualRearForce = Math.min(requestedRearForce * rearScale, rearLimit)
+    absActive = absActive || frontScale < 0.999 || rearScale < 0.999
+    const actualBrakeForce = actualFrontForce + actualRearForce
+    const acceleration = -actualBrakeForce / mass
 
-    if (gpsSample) {
-      const positionNoise = ((noise(index + 1000) / Math.max(sensorNoise, 0.0001)) * gpsNoise)
+    position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt)
+    velocity = Math.max(0, velocity + acceleration * dt)
+    time += dt
+    previousAcceleration = acceleration
+    trajectory.push({ time, velocity, position, acceleration })
+
+    const frontSlip = requestedFrontForce > frontLimit ? clamp((requestedFrontForce - frontLimit) / requestedFrontForce, 0, 0.25) : 0
+    const rearSlip = requestedRearForce > rearLimit ? clamp((requestedRearForce - rearLimit) / requestedRearForce, 0, 0.25) : 0
+    frontWheelSpeed = Math.max(0, velocity * (1 - frontSlip) / wheelRadius + noise(step + 1))
+    rearWheelSpeed = Math.max(0, velocity * (1 - rearSlip) / wheelRadius + noise(step + 2))
+    const imuAcceleration = acceleration + noise(step + 3)
+    fusedSpeed = Math.max(0, fusedSpeed + imuAcceleration * dt)
+    if (step % gpsStep === 0) {
+      const positionNoise = noise(step + 1000, gpsNoise)
       gpsLatitude = 51.5074 + positionNoise / 111111
       gpsLongitude = -0.1278 + (position + positionNoise) / 69400
-      gpsSpeed = Math.max(0, velocity + noise(index + 2000) * 0.05)
+      gpsSpeed = Math.max(0, velocity + noise(step + 2000, gpsNoise) * 0.05)
+      fusedSpeed = 0.85 * fusedSpeed + 0.15 * gpsSpeed
     }
-
-    sensors.push({
-      time,
-      frontWheelSpeed: Math.max(0, velocity * (1 + 0.12 * brakingRatio * (1 - actualFrontForce / Math.max(requestedFrontForce, 0.001))) / wheelRadius + noise(index + 1)),
-      rearWheelSpeed: Math.max(0, velocity * (1 - 0.08 * brakingRatio * (1 - actualRearForce / Math.max(requestedRearForce, 0.001))) / wheelRadius + noise(index + 2)),
-      longitudinalAcceleration: -deceleration + noise(index + 3),
-      lateralAcceleration: noise(index + 4) * 0.25,
-      verticalAcceleration: 9.81 + noise(index + 5) * 0.5,
-      rollRate: noise(index + 6) * 0.1,
-      pitchRate: -Math.abs(deceleration) * 0.015 + noise(index + 7) * 0.1,
-      yawRate: noise(index + 8) * 0.1,
-      gpsLatitude,
-      gpsLongitude,
-      gpsSpeed,
-      gpsFix: true
-    })
+    if (step % sensorStep === 0 || sensors.length === 0) {
+      sensors.push({
+        time,
+        frontWheelSpeed,
+        rearWheelSpeed,
+        longitudinalAcceleration: imuAcceleration,
+        lateralAcceleration: noise(step + 4) * 0.25,
+        verticalAcceleration: g + noise(step + 5) * 0.5,
+        rollRate: noise(step + 6) * 0.1,
+        pitchRate: -Math.abs(acceleration) * 0.015 + noise(step + 7) * 0.1,
+        yawRate: noise(step + 8) * 0.1,
+        gpsLatitude,
+        gpsLongitude,
+        gpsSpeed,
+        gpsFix: true
+      })
+    }
   }
+
+  const actualBrakeForce = actualFrontForce + actualRearForce
+  const deceleration = time > 0 ? v0 / time : 0
+  const averageDeceleration = position > 0 ? (v0 * v0) / (2 * position) : 0
 
   const result = {
     apiVersion: '2',
-    stoppingTime: stoppingTime,
-    stoppingDistance: stoppingDistance,
-    deceleration: -deceleration,
-    maxDeceleration: deceleration,
+    stoppingTime: time,
+    stoppingDistance: position,
+    deceleration: -averageDeceleration,
+    maxDeceleration: averageDeceleration,
     actualBrakeForce: actualBrakeForce,
     frontBrakeForce: actualFrontForce,
     rearBrakeForce: actualRearForce,
-    absActive: absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce),
-    model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true },
+    absActive: absEnabled && absActive,
+    model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true, sensorFusion: true, cgHeight, leanLimit },
+    fallen,
+    leanLimit,
     limits: {
       maxBrakeForce,
       frictionLimited: brakeForce > maxBrakeForce
@@ -152,9 +184,13 @@ async function handleRequest(request) {
       sensorRate,
       sensorNoise,
       gpsNoise,
-      wheelRadius
+      wheelRadius,
+      leanAngle,
+      frontBrakeBias,
+      absEnabled
     },
-    sensors
+    sensors,
+    trajectory
   }
 
   return jsonResponse(result)

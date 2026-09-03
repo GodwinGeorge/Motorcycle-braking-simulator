@@ -118,12 +118,17 @@ int main()
             double gpsNoise = body["gpsNoise"].d();
             double wheelRadius = body["wheelRadius"].d();
             double sensorRate = body["sensorRate"].d();
+            double leanAngle = body["leanAngle"].d();
+            double frontBrakeBias = body["frontBrakeBias"].d();
+            bool absEnabled = body["absEnabled"].b();
 
             if (sensorNoise <= 0.0) sensorNoise = 0.02;
             if (gpsNoise <= 0.0) gpsNoise = 1.5;
             if (wheelRadius <= 0.0) wheelRadius = 0.31;
             if (sensorRate <= 0.0) sensorRate = 100.0;
             sensorRate = std::clamp(sensorRate, 10.0, 100.0);
+            leanAngle = std::clamp(leanAngle, 0.0, 60.0);
+            frontBrakeBias = std::clamp(frontBrakeBias, 0.0, 100.0);
 
 
             // Convert km/h → m/s
@@ -137,9 +142,35 @@ int main()
 
             // Create vehicle
 
+            constexpr double GRAVITY = 9.81;
+            constexpr double PI = 3.14159265358979323846;
+            constexpr double REFERENCE_RADIUS = 0.31;
+            constexpr double REFERENCE_CG_HEIGHT = 0.62;
+            const double cgHeight = REFERENCE_CG_HEIGHT + (wheelRadius - REFERENCE_RADIUS);
+            const double leanLimit = std::atan(REFERENCE_CG_HEIGHT / cgHeight) * 180.0 / PI;
+            const bool fallen = leanAngle > leanLimit;
+            const double leanGrip = std::max(0.05, std::cos(leanAngle * PI / 180.0));
+            const double maximumBrakeForce = friction * mass * GRAVITY * leanGrip;
+            const double requestedFrontForce = brakeForce * frontBrakeBias / 100.0;
+            const double requestedRearForce = brakeForce - requestedFrontForce;
+            const double frontLoad = mass * GRAVITY * 0.62;
+            const double rearLoad = mass * GRAVITY - frontLoad;
+            const double frontLimit = friction * leanGrip * frontLoad;
+            const double rearLimit = friction * leanGrip * rearLoad;
+            const double actualFrontForce = absEnabled
+                ? std::min(requestedFrontForce, frontLimit)
+                : (requestedFrontForce > frontLimit ? requestedFrontForce * 0.7 : requestedFrontForce);
+            const double actualRearForce = absEnabled
+                ? std::min(requestedRearForce, rearLimit)
+                : (requestedRearForce > rearLimit ? requestedRearForce * 0.7 : requestedRearForce);
+            const double actualBrakeForce = absEnabled
+                ? std::min(actualFrontForce + actualRearForce, maximumBrakeForce)
+                : std::min(brakeForce, maximumBrakeForce * 0.7);
+            const bool absActive = absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce);
+
             VehicleModel vehicle(
                 mass,
-                friction
+                friction * leanGrip
             );
 
             vehicle.setInitialVelocity(
@@ -148,20 +179,6 @@ int main()
 
 
             // Calculate maximum available brake force
-
-            constexpr double GRAVITY = 9.81;
-
-            double maximumBrakeForce =
-                friction *
-                mass *
-                GRAVITY;
-
-
-            double actualBrakeForce =
-                std::min(
-                    brakeForce,
-                    maximumBrakeForce
-                );
 
             const double deceleration = actualBrakeForce / mass;
 
@@ -185,7 +202,7 @@ int main()
             {
                 vehicle.update(
                     DT,
-                    brakeForce
+                    actualBrakeForce
                 );
 
                 time += DT;
@@ -221,8 +238,8 @@ int main()
                     sensors.push_back(
                         {
                             time,
-                            std::max(0.0, speed * frontLoadFactor / wheelRadius + sensorError(random)),
-                            std::max(0.0, speed * rearLoadFactor / wheelRadius + sensorError(random)),
+                            std::max(0.0, speed / wheelRadius + sensorError(random)),
+                            std::max(0.0, speed / wheelRadius + sensorError(random)),
                             vehicle.getAcceleration() + sensorError(random),
                             sensorError(random) * 0.25,
                             9.81 + sensorError(random) * 0.5,
@@ -258,6 +275,12 @@ int main()
 
             response["actualBrakeForce"] =
                 actualBrakeForce;
+
+            response["absActive"] = absActive;
+            response["frontBrakeForce"] = actualFrontForce;
+            response["rearBrakeForce"] = actualRearForce;
+            response["fallen"] = fallen;
+            response["leanLimit"] = leanLimit;
 
 
             // Simulation data
