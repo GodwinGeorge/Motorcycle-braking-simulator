@@ -2,9 +2,10 @@
 #include <algorithm>
 
 
-VehicleModel::VehicleModel(double mass, double frictionCoefficient)
+VehicleModel::VehicleModel(double mass, double frictionCoefficient, double effectiveMass)
     : mass_(mass),
       frictionCoefficient_(frictionCoefficient),
+    effectiveMass_(effectiveMass > 0.0 ? effectiveMass : mass),
       velocity_(0.0),
       position_(0.0),
       acceleration_(0.0)
@@ -23,7 +24,7 @@ void VehicleModel::update(double dt, double brakeForce){
     const double actualBrakeForce = std::min(brakeForce, maximumBrakeForce);
 
     // F = ma -> a = F/m
-    acceleration_ = -actualBrakeForce / mass_; // Negative because braking decelerates the vehicle
+    acceleration_ = -actualBrakeForce / effectiveMass_; // Includes wheel rotational inertia
 
     // position update using constant acceleration over this time step
     position_ += velocity_ * dt + 0.5 * acceleration_ * dt * dt;

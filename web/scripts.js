@@ -207,6 +207,9 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     const grip = Math.max(0.05, Math.cos(leanAngle * Math.PI / 180));
     const cgHeight = 0.62 + (wheelRadius - 0.31);
     const leanLimit = Math.atan(0.62 / cgHeight) * 180 / Math.PI;
+    const wheelMass = mass * 0.04;
+    const referenceWheelInertia = 0.5 * wheelMass * 0.31 ** 2;
+    const effectiveMass = mass + (2 * referenceWheelInertia) / wheelRadius ** 2;
     const requestedFront = brakeForce * frontBrakeBias / 100;
     const requestedRear = brakeForce - requestedFront;
     const maxBrakeForce = friction * mass * g * grip;
@@ -243,7 +246,7 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
         actualRearForce = absEnabled ? Math.min(requestedRear * rearScale, rearLimit) : requestedRear * manualScale;
         absActive = absActive || frontScale < 0.999 || rearScale < 0.999;
         const actualBrakeForce = actualFrontForce + actualRearForce;
-        const acceleration = -actualBrakeForce / mass;
+        const acceleration = -actualBrakeForce / effectiveMass;
         position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt);
         velocity = Math.max(0, velocity + acceleration * dt);
         time += dt;
@@ -273,7 +276,7 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     }
     const actualBrakeForce = actualFrontForce + actualRearForce;
     const deceleration = position > 0 ? (initialSpeed * initialSpeed) / (2 * position) : 0;
-    return { stoppingTime: time, stoppingDistance: position, deceleration: -deceleration, actualBrakeForce, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
+    return { stoppingTime: time, stoppingDistance: position, deceleration: -deceleration, actualBrakeForce, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
 
 checkCloudflareConnection();

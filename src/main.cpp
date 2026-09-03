@@ -150,6 +150,9 @@ int main()
             const double leanLimit = std::atan(REFERENCE_CG_HEIGHT / cgHeight) * 180.0 / PI;
             const bool fallen = leanAngle > leanLimit;
             const double leanGrip = std::max(0.05, std::cos(leanAngle * PI / 180.0));
+            const double wheelMass = mass * 0.04;
+            const double referenceWheelInertia = 0.5 * wheelMass * REFERENCE_RADIUS * REFERENCE_RADIUS;
+            const double effectiveMass = mass + (2.0 * referenceWheelInertia) / (wheelRadius * wheelRadius);
             const double maximumBrakeForce = friction * mass * GRAVITY * leanGrip;
             const double requestedFrontForce = brakeForce * frontBrakeBias / 100.0;
             const double requestedRearForce = brakeForce - requestedFrontForce;
@@ -171,7 +174,8 @@ int main()
 
             VehicleModel vehicle(
                 mass,
-                friction * leanGrip
+                friction * leanGrip,
+                effectiveMass
             );
 
             vehicle.setInitialVelocity(
@@ -282,6 +286,7 @@ int main()
             response["rearBrakeForce"] = actualRearForce;
             response["fallen"] = fallen;
             response["leanLimit"] = leanLimit;
+            response["effectiveMass"] = effectiveMass;
 
 
             // Simulation data

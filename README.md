@@ -279,6 +279,12 @@ the simulator determines whether the requested braking force exceeds the availab
 
 The permitted front and rear forces are integrated over time to calculate deceleration, stopping time, and stopping distance.
 
+Wheel radius also changes braking inertia. The model assumes the two wheels together have $4\%$ of vehicle mass and keeps their reference rotational inertia at radius $0.31\,m$:
+
+$$I_{ref}=2\left(\frac{1}{2}(0.02m)(0.31)^2\right), \qquad m_{eff}=m+\frac{2I_{ref}}{r^2}$$
+
+The braking acceleration uses $a=-(F_{front}+F_{rear})/m_{eff}$. This is a simplified wheel-inertia model; real wheel, tyre, and drivetrain inertia should be measured for a production model.
+
 ---
 
 

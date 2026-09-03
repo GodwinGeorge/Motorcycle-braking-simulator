@@ -70,6 +70,9 @@ async function handleRequest(request) {
   const g = 9.81
   const v0 = speed_kmh / 3.6
   const dt = 0.01
+  const wheelMass = mass * 0.04
+  const referenceWheelInertia = 0.5 * wheelMass * referenceRadius ** 2
+  const effectiveMass = mass + (2 * referenceWheelInertia) / wheelRadius ** 2
   const leanGrip = Math.max(0.05, Math.cos(leanAngle * Math.PI / 180))
   const maxBrakeForce = friction * mass * g * leanGrip
   const requestedFrontForce = brakeForce * frontBrakeBias / 100
@@ -120,7 +123,7 @@ async function handleRequest(request) {
       : requestedRearForce * manualScale
     absActive = absActive || frontScale < 0.999 || rearScale < 0.999
     const actualBrakeForce = actualFrontForce + actualRearForce
-    const acceleration = -actualBrakeForce / mass
+    const acceleration = -actualBrakeForce / effectiveMass
 
     position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt)
     velocity = Math.max(0, velocity + acceleration * dt)
@@ -174,7 +177,7 @@ async function handleRequest(request) {
     frontBrakeForce: actualFrontForce,
     rearBrakeForce: actualRearForce,
     absActive: absEnabled && absActive,
-    model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true, sensorFusion: true, cgHeight, leanLimit },
+    model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true, sensorFusion: true, cgHeight, leanLimit, effectiveMass },
     fallen,
     leanLimit,
     limits: {

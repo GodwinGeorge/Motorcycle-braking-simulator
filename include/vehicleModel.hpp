@@ -2,7 +2,7 @@
 
 class VehicleModel {
 public:
-    VehicleModel(double mass, double frictionCoefficient);
+    VehicleModel(double mass, double frictionCoefficient, double effectiveMass = 0.0);
     void setInitialVelocity(double velocity);
     void update(double dt, double brakeForce);
 
@@ -13,6 +13,7 @@ public:
 private:
     double mass_;
     double frictionCoefficient_;
+    double effectiveMass_;
     double velocity_;
     double position_;
     double acceleration_;
