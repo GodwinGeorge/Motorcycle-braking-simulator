@@ -172,8 +172,24 @@ body[data-road="track"] .road-post { border-top-color: #d8d2c0; }
 .study-note-mark, .sensor-story .eyebrow, .sensor-story-data li span, .technical-index, .stack-strip > span { color: var(--orange-dark); }
 #motorcycle.is-braking svg .tail-light { fill: var(--orange); stroke: #f0b29b; filter: drop-shadow(0 0 5px var(--orange)); }
 .status-pill.is-complete { transition: color .2s ease, background-color .2s ease; }
+.status-pill.is-danger { color: #fffdf8; border-color: var(--orange-dark); background: var(--orange-dark); }
 #motorcycle.is-fallen { transform: translateY(-8%) rotate(82deg) !important; transform-origin: 48% 78%; transition: transform .45s ease-in; filter: drop-shadow(8px 10px 4px rgba(0,0,0,.22)); }
 #motorcycle.is-rear-lift { transform: translateY(-58%) rotate(-3deg) !important; transform-origin: 48% 78%; }
+#motorcycle.is-hazard svg .running-light { fill: #f8df9c; stroke: #fff4b0; filter: drop-shadow(0 0 6px #f8df9c); animation: hazard-flash .55s steps(2, end) infinite; }
+@keyframes hazard-flash { 50% { opacity: .2; } }
+#dog { position: absolute; z-index: 3; bottom: 34%; left: 72%; width: 45px; height: 42px; color: #20221f; transition: left .2s ease; }
+#dog span { position: absolute; display: block; background: #8f5f42; }
+#dog .dog-body { left: 9px; bottom: 8px; width: 28px; height: 18px; border-radius: 55% 45% 35% 45%; }
+#dog .dog-head { left: 1px; bottom: 18px; width: 17px; height: 16px; border-radius: 50%; }
+#dog .dog-ear { left: 1px; bottom: 28px; width: 8px; height: 12px; border-radius: 60% 20%; transform: rotate(25deg); background: #63402f; }
+#dog .dog-leg { bottom: 0; width: 5px; height: 13px; border-radius: 0 0 3px 3px; }
+#dog .dog-leg-one { left: 14px; } #dog .dog-leg-two { left: 29px; }
+#dog .dog-tail { right: 1px; bottom: 22px; width: 15px; height: 5px; border-radius: 5px; transform: rotate(-35deg); transform-origin: left center; }
+#dog strong { position: absolute; bottom: -15px; left: 4px; color: #fffdf8; font: 8px 'DM Mono', monospace; text-transform: uppercase; }
+#dog.is-hit { filter: grayscale(1); opacity: .55; transform: rotate(90deg) translate(-4px, 12px); transform-origin: 45% 75%; }
+#dog.is-hit strong { color: #f8df9c; }
+#dog.is-safe { animation: dog-alert .8s ease-in-out infinite alternate; }
+@keyframes dog-alert { to { transform: translateY(-2px); } }
 
 /* Editorial shell: original visual system for Brake Lab. */
 html { scroll-behavior: smooth; }
