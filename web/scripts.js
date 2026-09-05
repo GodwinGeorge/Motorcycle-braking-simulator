@@ -59,7 +59,10 @@ function setConfigurationHint(message, isError = false) {
 function validateInputs() {
     for (const [id, label] of Object.entries(inputLabels)) {
         const input = document.getElementById(id);
-        if (input.value.trim() === "" || !input.validity.valid || !Number.isFinite(Number(input.value))) {
+        const isBooleanInput = input.type === "hidden";
+        const validBoolean = input.value === "true" || input.value === "false";
+        const invalidNumeric = input.value.trim() === "" || !input.validity.valid || !Number.isFinite(Number(input.value));
+        if (isBooleanInput ? !validBoolean : invalidNumeric) {
             setConfigurationHint(`${label} needs a valid value.`, true);
             input.focus();
             return false;
@@ -225,8 +228,8 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     document.getElementById("resultExplanation").textContent = json.dogHit
         ? `You will hit the dog at ${json.dogDistance.toFixed(1)} m with approximately ${json.impactSpeedKmh.toFixed(1)} km/h remaining. Hazard lights are on and the dog has died.`
         : json.dogEnabled === false
-            ? "Track mode · dog obstacle disabled."
-            : `The dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. ${json.rearWheelLift ? "The rear wheel lifts because rear load reached zero." : json.rearWheelLiftRequested ? "The lift request did not reach the physical lift threshold." : "Both wheels remain loaded."}`;
+            ? "Safe rider · Track mode has no dog obstacle."
+            : `Safe rider · the dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. ${json.rearWheelLift ? "The rear wheel lifts because rear load reached zero." : json.rearWheelLiftRequested ? "The lift request did not reach the physical lift threshold." : "Both wheels remain loaded."}`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
     const sensors = Array.isArray(json.sensors) && json.sensors.length
