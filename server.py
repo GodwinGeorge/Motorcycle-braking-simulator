@@ -40,6 +40,7 @@ class SimHandler(BaseHTTPRequestHandler):
             wheel_radius = max(0.1, float(data.get('wheelRadius', 0.31)))
             lean_angle = float(data.get('leanAngle', 0))
             reaction_time = min(5.0, max(0.0, float(data.get('reactionTime', 1))))
+            dog_distance = min(200.0, max(1.0, float(data.get('dogDistance', 25))))
 
             from math import cos, radians
             g = 9.81
@@ -70,6 +71,10 @@ class SimHandler(BaseHTTPRequestHandler):
                 raise ValueError('invalid physical parameters')
             decel = v0 / stopping_time
             reaction_distance = v0 * reaction_time
+            braking_deceleration = (v0 * v0) / (2.0 * position) if position > 0 else 0.0
+            dog_hit = dog_distance <= position + reaction_distance
+            distance_after_reaction = max(0.0, dog_distance - reaction_distance)
+            impact_speed_kmh = (max(0.0, v0 * v0 - 2.0 * braking_deceleration * distance_after_reaction) ** 0.5) * 3.6 if dog_hit else 0.0
 
             result = {
                 'stoppingTime': stopping_time,
@@ -77,6 +82,9 @@ class SimHandler(BaseHTTPRequestHandler):
                 'totalStoppingDistance': position + reaction_distance,
                 'reactionTime': reaction_time,
                 'reactionDistance': reaction_distance,
+                'dogDistance': dog_distance,
+                'dogHit': dog_hit,
+                'impactSpeedKmh': impact_speed_kmh,
                 'deceleration': -decel,
                 'actualBrakeForce': actualF,
                 'frontBrakeForce': actual_front,

@@ -67,8 +67,10 @@ int main()
         double leanAngle = r["leanAngle"].d();
         double frontBrakeBias = r["frontBrakeBias"].d();
         double reactionTime = r["reactionTime"].d();
+        double dogDistance = r["dogDistance"].d();
         bool absEnabled = r["absEnabled"].b();
         reactionTime = std::clamp(reactionTime, 0.0, 5.0);
+        dogDistance = std::clamp(dogDistance, 1.0, 200.0);
 
         const double g = 9.81;
         double v0 = speed_kmh / 3.6;
@@ -97,6 +99,14 @@ int main()
         res["reactionTime"] = reactionTime;
         res["reactionDistance"] = reactionDistance;
         res["deceleration"] = -(v0 / stoppingTime);
+        const double brakingDeceleration = stoppingDistance > 0.0 ? (v0 * v0) / (2.0 * stoppingDistance) : 0.0;
+        const bool dogHit = dogDistance <= stoppingDistance + reactionDistance;
+        const double distanceAfterReaction = std::max(0.0, dogDistance - reactionDistance);
+        res["dogDistance"] = dogDistance;
+        res["dogHit"] = dogHit;
+        res["impactSpeedKmh"] = dogHit
+            ? std::sqrt(std::max(0.0, v0 * v0 - 2.0 * brakingDeceleration * distanceAfterReaction)) * 3.6
+            : 0.0;
         res["actualBrakeForce"] = actualBrakeForce;
         res["frontBrakeForce"] = forces.frontForce;
         res["rearBrakeForce"] = forces.rearForce;

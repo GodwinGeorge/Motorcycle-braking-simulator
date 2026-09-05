@@ -134,6 +134,10 @@
                 <label for="reactionTime">Reaction Time (s)</label>
                 <input type="number" id="reactionTime" value="1" min="0" max="5" step="0.1">
             </div>
+            <div class="input-group compact-input">
+                <label for="dogDistance">Dog Distance (m)</label>
+                <input type="number" id="dogDistance" value="25" min="1" max="200" step="1">
+            </div>
             </div>
                 </div>
 
@@ -221,6 +225,7 @@
                 <div class="rain-layer" aria-hidden="true"></div>
                 <div class="road-surface"><span></span><span></span><span></span><span></span></div>
                 <div id="brakeImpressions" aria-hidden="true"><span></span><span></span></div>
+                <div id="dog" role="img" aria-label="Dog obstacle"><span class="dog-body"></span><span class="dog-head"></span><span class="dog-ear"></span><span class="dog-leg dog-leg-one"></span><span class="dog-leg dog-leg-two"></span><span class="dog-tail"></span><strong>dog</strong></div>
                 <div id="motorcycle" role="img" aria-label="Motorcycle">
                     <svg viewBox="0 0 240 120" aria-hidden="true">
                         <circle class="wheel" cx="48" cy="91" r="24"></circle>
@@ -307,7 +312,7 @@
             <div class="result-card">
                 <h3>Reaction distance</h3>
                 <p id="reactionDistance">--</p>
-                <span>meters / 1.0 s</span>
+                <span>meters before braking</span>
             </div>
 
             <div class="result-card">
@@ -330,7 +335,7 @@
 
         </section>
 
-        <p id="resultExplanation" class="result-explanation" aria-live="polite">Run a simulation to see how reaction time and axle load transfer shape the result.</p>
+        <p id="resultExplanation" class="result-explanation" aria-live="polite">Run a simulation to see reaction distance, braking distance, and whether the motorcycle reaches the dog.</p>
 
 
         <section class="panel graph-panel">
@@ -375,7 +380,7 @@
         <div class="technical-heading">
             <p class="eyebrow">Notes from the study</p>
             <h2 id="technical-title">What changes the stop?</h2>
-            <p>Each control has a visible effect: speed, mass, grip, brake force, lean and brake bias change the stop; ABS changes wheel slip and stopping distance; sensor settings change the fused readout; radius changes tyre size and wheel angular speed.</p>
+            <p>Each control has a visible effect: speed, mass, grip, brake force, lean, brake bias, reaction time, and dog distance change the result; ABS changes wheel slip and stopping distance; sensor settings change the fused readout; radius changes tyre size and wheel angular speed.</p>
         </div>
         <div class="technical-grid">
             <article>

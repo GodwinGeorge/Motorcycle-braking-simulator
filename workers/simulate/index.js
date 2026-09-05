@@ -57,6 +57,7 @@ async function handleRequest(request) {
   const leanAngle = Math.min(Math.max(numberOr(data.leanAngle, 0), 0), 60)
   const frontBrakeBias = Math.min(Math.max(numberOr(data.frontBrakeBias, 70), 0), 100)
   const reactionTime = Math.min(Math.max(numberOr(data.reactionTime, 1), 0), 5)
+  const dogDistance = Math.min(Math.max(numberOr(data.dogDistance, 25), 1), 200)
   const absEnabled = data.absEnabled !== false
   const referenceRadius = 0.31
   const referenceCgHeight = 0.62
@@ -168,6 +169,11 @@ async function handleRequest(request) {
   const rearWheelLift = mass * g / 2 - mass * Math.max(0, -previousAcceleration) * cgHeight / 1.4 <= 1e-6
   const deceleration = time > 0 ? v0 / time : 0
   const averageDeceleration = position > 0 ? (v0 * v0) / (2 * position) : 0
+  const dogHit = dogDistance <= position + reactionDistance
+  const distanceAfterReaction = Math.max(0, dogDistance - reactionDistance)
+  const impactSpeedKmh = dogHit
+    ? Math.sqrt(Math.max(0, v0 * v0 - 2 * averageDeceleration * distanceAfterReaction)) * 3.6
+    : 0
 
   const result = {
     apiVersion: '2',
@@ -176,6 +182,9 @@ async function handleRequest(request) {
     totalStoppingDistance: position + reactionDistance,
     reactionTime,
     reactionDistance,
+    dogDistance,
+    dogHit,
+    impactSpeedKmh,
     deceleration: -averageDeceleration,
     maxDeceleration: averageDeceleration,
     actualBrakeForce: actualBrakeForce,
@@ -201,6 +210,8 @@ async function handleRequest(request) {
       wheelRadius,
       leanAngle,
       frontBrakeBias,
+      reactionTime,
+      dogDistance,
       absEnabled
     },
     sensors,

@@ -18,9 +18,10 @@ Open the live demo:
 1. Choose a road profile: City, Wet, or Track.
 2. Adjust motorcycle mass, initial speed, road friction, and brake force.
 3. Set the reaction time used to calculate the distance traveled before braking.
-4. Select Run Simulation.
-5. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
-6. Review reaction distance, braking distance, total stopping distance, and the physical brake results.
+4. Set the dog distance to place the dog obstacle on the road.
+5. Select Run Simulation.
+6. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, dog state, and velocity graph update.
+7. Review reaction distance, braking distance, total stopping distance, and the physical brake results.
 
 The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI uses the deployed API when available and falls back to the browser model, including sensor telemetry, when the API is unavailable.
 
@@ -102,6 +103,14 @@ Reaction distance is separate from the braking trajectory. The user-selected rea
 $$d_{reaction}=v_0 t_{reaction}, \qquad d_{total}=d_{reaction}+d_{braking}$$
 
 The default reaction time is 1 second. It affects only the reaction and total distances, not tyre load transfer or wheel lift during braking.
+
+Dog collision check
+
+The dog is placed at the user-selected distance. The model compares that distance with total stopping distance:
+
+$$dogHit = dogDistance \leq d_{total}$$
+
+If the dog is reached, the response reports `dogHit: true` and estimates the remaining impact speed after the reaction phase and braking distance traveled. The UI marks the dog as hit, turns on the motorcycle hazard lights, and displays a clear warning. If the dog is beyond the total stopping distance, it remains safe and no collision warning is shown. This is an educational obstacle check, not a safety system.
 
 The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
 
@@ -261,6 +270,7 @@ Request
   "leanAngle": 0,
   "frontBrakeBias": 70,
   "reactionTime": 1,
+  "dogDistance": 25,
   "absEnabled": true
 }
 
@@ -272,6 +282,9 @@ Response (core fields)
   "stoppingDistance": 31.46,
   "stoppingTime": 2.84,
   "reactionTime": 1.0,
+  "dogDistance": 25,
+  "dogHit": true,
+  "impactSpeedKmh": 76.9,
   "reactionDistance": 22.22,
   "totalStoppingDistance": 53.68,
   "frontBrakeForce": 1340.9,

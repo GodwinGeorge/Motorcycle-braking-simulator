@@ -3,6 +3,7 @@ window.scrollTo(0, 0);
 
 const simulateButton = document.getElementById("simulateButton");
 const motorcycle = document.getElementById("motorcycle");
+const dog = document.getElementById("dog");
 const brakeImpressions = document.getElementById("brakeImpressions");
 const status = document.getElementById("simulationStatus");
 const apiState = document.getElementById("apiState");
@@ -45,7 +46,8 @@ const inputLabels = {
     wheelRadius: "Wheel radius",
     leanAngle: "Lean angle",
     frontBrakeBias: "Front brake bias",
-    reactionTime: "Reaction time"
+    reactionTime: "Reaction time",
+    dogDistance: "Dog distance"
 };
 
 function setConfigurationHint(message, isError = false) {
@@ -135,13 +137,14 @@ async function simulate() {
     const leanAngle = Number(document.getElementById("leanAngle").value);
     const frontBrakeBias = Number(document.getElementById("frontBrakeBias").value);
     const reactionTime = Number(document.getElementById("reactionTime").value);
+    const dogDistance = Number(document.getElementById("dogDistance").value);
     const absEnabled = document.getElementById("absEnabled").value === "true";
 
     status.textContent = "Contacting backend...";
     simulateButton.disabled = true;
     simulateButton.querySelector("span").textContent = "Running simulation";
 
-    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, reactionTime, absEnabled };
+    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, reactionTime, dogDistance, absEnabled };
 
     try {
         const endpoint = isLocalHost
@@ -187,12 +190,16 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     document.getElementById("totalStoppingDistance").textContent = json.totalStoppingDistance.toFixed(2);
     document.getElementById("deceleration").textContent = deceleration.toFixed(2);
     document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
-    setConfigurationHint(json.rearWheelLift
+    setConfigurationHint(json.dogHit
+        ? `Collision predicted · the motorcycle will hit the dog at ${json.dogDistance.toFixed(1)} m`
+        : json.rearWheelLift
         ? "Rear wheel lift detected · front load is carrying the brake force"
         : json.absActive
             ? "Dual-channel ABS is modulating the front/rear force limits"
             : "Simulation complete · no ABS modulation required");
-    document.getElementById("resultExplanation").textContent = `The ${json.reactionDistance.toFixed(1)} m reaction distance uses ${json.reactionTime.toFixed(1)} s of reaction time before braking. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
+    document.getElementById("resultExplanation").textContent = json.dogHit
+        ? `You will hit the dog at ${json.dogDistance.toFixed(1)} m with approximately ${json.impactSpeedKmh.toFixed(1)} km/h remaining. Hazard lights are on and the dog is marked as hit.`
+        : `The dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
     const sensors = Array.isArray(json.sensors) && json.sensors.length
@@ -203,11 +210,11 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
         : Array.isArray(json.data) && json.data.length
             ? json.data
         : buildBrowserSimulation(payload).trajectory;
-    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate, payload, json.leanLimit, trajectory, json.rearWheelLift);
+    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate, payload, json.leanLimit, trajectory, json.rearWheelLift, json.dogHit, json.dogDistance, json.totalStoppingDistance);
     drawGraph(initialSpeed, deceleration, stoppingTime, trajectory);
 }
 
-function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, reactionTime = 1, absEnabled = true }) {
+function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, reactionTime = 1, dogDistance = 25, absEnabled = true }) {
     const initialSpeed = speed / 3.6;
     const g = 9.81;
     const dt = 0.01;
@@ -264,8 +271,8 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
         time += dt;
         previousAcceleration = acceleration;
         trajectory.push({ time, velocity, position, acceleration });
-        const frontWheelSlip = requestedFront > frontLimit ? clamp((requestedFront - frontLimit) / requestedFront, 0, 0.25) : 0;
-        const rearWheelSlip = requestedRear > rearLimit ? clamp((requestedRear - rearLimit) / requestedRear, 0, 0.25) : 0;
+        const frontWheelSlip = requestedFront > friction * grip * frontLoad ? clamp((requestedFront - friction * grip * frontLoad) / requestedFront, 0, 0.25) : 0;
+        const rearWheelSlip = requestedRear > friction * grip * rearLoad ? clamp((requestedRear - friction * grip * rearLoad) / requestedRear, 0, 0.25) : 0;
         frontWheelSpeed = Math.max(0, velocity * (1 - frontWheelSlip) / wheelRadius + noise(step + 1));
         rearWheelSpeed = Math.max(0, velocity * (1 - rearWheelSlip) / wheelRadius + noise(step + 2));
         const imuAcceleration = acceleration + noise(step + 3);
@@ -290,7 +297,13 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     const deceleration = position > 0 ? (initialSpeed * initialSpeed) / (2 * position) : 0;
     reactionTime = Math.min(5, Math.max(0, Number(reactionTime) || 0));
     const reactionDistance = initialSpeed * reactionTime;
-    return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
+    const normalizedDogDistance = Math.min(200, Math.max(1, Number(dogDistance) || 25));
+    const totalStoppingDistance = position + reactionDistance;
+    const dogHit = normalizedDogDistance <= totalStoppingDistance;
+    const impactSpeedKmh = dogHit
+        ? Math.max(0, initialSpeed - Math.max(0, normalizedDogDistance - reactionDistance) * deceleration)
+        : 0;
+    return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance, reactionTime, reactionDistance, dogDistance: normalizedDogDistance, dogHit, impactSpeedKmh, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
 
 checkCloudflareConnection();
@@ -322,7 +335,7 @@ function updateMotorcycleWheels(wheelRadius) {
     });
 }
 
-function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate, payload, leanLimit, trajectory, rearWheelLift) {
+function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate, payload, leanLimit, trajectory, rearWheelLift, dogHit, dogDistance, totalStoppingDistance) {
     status.textContent = "Braking...";
     status.className = "status-pill is-running";
     motorcycle.style.left = "20px";
@@ -332,6 +345,9 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
     updateMotorcycleWheels(payload.wheelRadius);
     motorcycle.classList.remove("is-fallen");
     motorcycle.classList.toggle("is-rear-lift", Boolean(rearWheelLift));
+    motorcycle.classList.toggle("is-hazard", Boolean(dogHit));
+    dog.classList.remove("is-hit", "is-safe");
+    dog.classList.add(dogHit ? "is-hit" : "is-safe");
     motorcycle.classList.add("is-braking");
     motorcycle.classList.add("is-moving");
     brakeImpressions.classList.remove("is-visible");
@@ -367,15 +383,26 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
 
         const roadWidth = road.clientWidth;
         const motorcycleWidth = motorcycle.offsetWidth;
+        const dogProgress = totalStoppingDistance > 0 ? dogDistance / totalStoppingDistance : 1;
+        const dogX = 20 + dogProgress * (roadWidth - motorcycleWidth - 80);
+        dog.style.left = `${Math.min(roadWidth - 58, Math.max(20, dogX))}px`;
 
         const x = 20 + normalizedPosition * (roadWidth - motorcycleWidth - 80);
         motorcycle.style.left = `${x}px`;
+        if (dogHit && position + initialSpeed * payload.reactionTime >= dogDistance) {
+            status.textContent = "Dog hit · hazards on";
+            status.className = "status-pill is-complete is-danger";
+        }
         telemetry.velocity.innerHTML = `${(Math.max(sample.velocity, 0) * 3.6).toFixed(1)} <small>km/h</small>`;
         telemetry.distance.innerHTML = `${Math.max(position, 0).toFixed(1)} <small>m</small>`;
         telemetry.time.innerHTML = `${t.toFixed(2)} <small>s</small>`;
         telemetry.force.innerHTML = `${actualBrakeForce.toFixed(0)} <small>N</small>`;
         const sensorIndex = Math.min(Math.floor(t * sensorRate), Math.max(sensors.length - 1, 0));
         updateSensorReadout(sensors[sensorIndex], sensorIndex, sensors.length);
+        if (dogHit && position + initialSpeed * payload.reactionTime >= dogDistance) {
+            status.textContent = "Dog hit · hazards on";
+            status.className = "status-pill is-complete is-danger";
+        }
 
         if (elapsed < stoppingTime) {
             requestAnimationFrame(animationFrame);
@@ -384,8 +411,8 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
             brakeImpressions.classList.add("is-visible");
             motorcycle.classList.remove("is-braking");
             motorcycle.classList.remove("is-moving");
-            status.textContent = "Stopped";
-            status.className = "status-pill is-complete";
+            status.textContent = dogHit ? "Dog hit · hazards on" : "Stopped";
+            status.className = dogHit ? "status-pill is-complete is-danger" : "status-pill is-complete";
         }
     }
 
