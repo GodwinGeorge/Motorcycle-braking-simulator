@@ -100,6 +100,8 @@ async function handleRequest(request) {
   let actualFrontForce = 0
   let actualRearForce = 0
   let absActive = false
+  let frontLoad = mass * g / 2
+  let rearLoad = frontLoad
 
   // Deterministic noise makes local and hosted runs repeatable for the same inputs.
   const noise = (seed, amplitude = sensorNoise) => {
@@ -110,8 +112,6 @@ async function handleRequest(request) {
 
   for (let step = 0; velocity > 0 && step < 30000; step += 1) {
     let forceAcceleration = previousAcceleration
-    let frontLoad = mass * g / 2
-    let rearLoad = frontLoad
     for (let iteration = 0; iteration < 8; iteration += 1) {
       const transfer = mass * Math.max(0, -forceAcceleration) * cgHeight / 1.4
       frontLoad = mass * g / 2 + transfer
