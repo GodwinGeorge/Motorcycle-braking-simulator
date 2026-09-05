@@ -154,6 +154,14 @@
                     </div>
                     <input type="hidden" id="absEnabled" value="true" aria-label="Dual channel ABS enabled">
                 </div>
+                <div class="sensor-control lift-control">
+                    <label>Rear wheel lift</label>
+                    <div class="sensor-options sensor-options-single">
+                        <button class="sensor-option" type="button" data-input="rearWheelLiftRequested" data-value="true"><strong>Requested</strong><small>front brake only</small></button>
+                        <button class="sensor-option is-active" type="button" data-input="rearWheelLiftRequested" data-value="false"><strong>Planted</strong><small>both wheels</small></button>
+                    </div>
+                    <input type="hidden" id="rearWheelLiftRequested" value="false" aria-label="Rear wheel lift requested">
+                </div>
                 <div class="sensor-control">
                     <label>IMU / WSS noise</label>
                     <div class="sensor-options">
@@ -431,7 +439,7 @@
         <p>Independent study in motorcycle dynamics, sensing and software. © 2026 Godwin George.</p>
     </footer>
 
-    <script src="scripts.js?v=dog-collision-v4"></script>
+    <script src="scripts.js?v=lift-track-v1"></script>
 
 </body>
 </html>

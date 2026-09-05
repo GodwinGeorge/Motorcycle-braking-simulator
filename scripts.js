@@ -27,9 +27,9 @@ const sensorTelemetry = {
 };
 
 const presets = {
-    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.02, gpsNoise: 1.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true },
-    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.04, gpsNoise: 2.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true },
-    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500, sensorRate: 100, sensorNoise: 0.03, gpsNoise: 1.0, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true }
+    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.02, gpsNoise: 1.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, rearWheelLiftRequested: false, absEnabled: true },
+    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.04, gpsNoise: 2.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, rearWheelLiftRequested: false, absEnabled: true },
+    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500, sensorRate: 100, sensorNoise: 0.03, gpsNoise: 1.0, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, rearWheelLiftRequested: false, absEnabled: true }
 };
 
 const cloudEndpoint = 'https://vehicle-braking-worker.godwin-veh-sim.workers.dev';
@@ -47,7 +47,8 @@ const inputLabels = {
     leanAngle: "Lean angle",
     frontBrakeBias: "Front brake bias",
     reactionTime: "Reaction time",
-    dogDistance: "Dog distance"
+    dogDistance: "Dog distance",
+    rearWheelLiftRequested: "Rear wheel lift"
 };
 
 function setConfigurationHint(message, isError = false) {
@@ -96,6 +97,9 @@ document.querySelectorAll(".preset").forEach((button) => {
         button.classList.add("is-active");
         document.querySelectorAll(".preset").forEach((item) => item.setAttribute("aria-checked", String(item === button)));
         document.body.dataset.road = button.dataset.preset;
+        dog.classList.toggle("is-track-hidden", button.dataset.preset === "track");
+        document.getElementById("dogDistance").disabled = button.dataset.preset === "track";
+        syncLiftControl(values.absEnabled);
         setConfigurationHint(`${button.querySelector("strong").textContent} profile selected · values update instantly`);
     });
 });
@@ -104,11 +108,26 @@ document.querySelectorAll(".sensor-option").forEach((button) => {
     button.addEventListener("click", () => {
         const input = document.getElementById(button.dataset.input);
         input.value = button.dataset.value;
+        if (button.dataset.input === "absEnabled") {
+            syncLiftControl(button.dataset.value === "true");
+        }
         button.closest(".sensor-options").querySelectorAll(".sensor-option").forEach((item) => item.classList.remove("is-active"));
         button.classList.add("is-active");
         setConfigurationHint(`${button.closest(".sensor-control").querySelector("label").textContent}: ${button.querySelector("small").textContent}`);
     });
 });
+
+function syncLiftControl(absEnabled) {
+    const liftInput = document.getElementById("rearWheelLiftRequested");
+    const liftButtons = document.querySelectorAll('[data-input="rearWheelLiftRequested"]');
+    if (absEnabled) liftInput.value = "false";
+    liftButtons.forEach((button) => {
+        button.disabled = absEnabled;
+        button.classList.toggle("is-active", button.dataset.value === liftInput.value);
+    });
+}
+
+syncLiftControl(true);
 
 Object.keys(inputLabels).forEach((id) => {
     document.getElementById(id).addEventListener("input", () => {
@@ -128,7 +147,7 @@ async function simulate() {
 
     const mass = Number(document.getElementById("mass").value);
     const initialSpeedKmh = Number(document.getElementById("speed").value);
-    const friction = Number(document.getElementById("friction").value);
+        const friction = Number(document.getElementById("friction").value);
     const brakeForce = Number(document.getElementById("brakeForce").value);
     const sensorRate = Number(document.getElementById("sensorRate").value);
     const sensorNoise = Number(document.getElementById("sensorNoise").value);
@@ -139,12 +158,14 @@ async function simulate() {
     const reactionTime = Number(document.getElementById("reactionTime").value);
     const dogDistance = Number(document.getElementById("dogDistance").value);
     const absEnabled = document.getElementById("absEnabled").value === "true";
+    const rearWheelLiftRequested = document.getElementById("rearWheelLiftRequested").value === "true";
+    const dogEnabled = document.body.dataset.road !== "track";
 
     status.textContent = "Contacting backend...";
     simulateButton.disabled = true;
     simulateButton.querySelector("span").textContent = "Running simulation";
 
-    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, reactionTime, dogDistance, absEnabled };
+    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, reactionTime, dogDistance, dogEnabled, rearWheelLiftRequested, absEnabled };
 
     try {
         const endpoint = isLocalHost
@@ -183,6 +204,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     const initialSpeed = initialSpeedKmh / 3.6;
     const deceleration = Math.abs(json.deceleration);
     const stoppingTime = json.stoppingTime;
+    dog.classList.toggle("is-track-hidden", json.dogEnabled === false);
 
     document.getElementById("stoppingTime").textContent = stoppingTime.toFixed(2);
     document.getElementById("stoppingDistance").textContent = json.stoppingDistance.toFixed(2);
@@ -190,7 +212,9 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     document.getElementById("totalStoppingDistance").textContent = json.totalStoppingDistance.toFixed(2);
     document.getElementById("deceleration").textContent = deceleration.toFixed(2);
     document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
-    setConfigurationHint(json.dogHit
+    setConfigurationHint(json.rearWheelLiftPreventedByAbs
+        ? "ABS is active · rear wheel lift request prevented"
+        : json.dogHit
         ? `Collision predicted · the motorcycle will hit the dog at ${json.dogDistance.toFixed(1)} m`
         : json.rearWheelLift
         ? "Rear wheel lift detected · front load is carrying the brake force"
@@ -199,7 +223,9 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
             : "Simulation complete · no ABS modulation required");
     document.getElementById("resultExplanation").textContent = json.dogHit
         ? `You will hit the dog at ${json.dogDistance.toFixed(1)} m with approximately ${json.impactSpeedKmh.toFixed(1)} km/h remaining. Hazard lights are on and the dog has died.`
-        : `The dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
+        : json.dogEnabled === false
+            ? "Track mode · dog obstacle disabled."
+            : `The dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. ${json.rearWheelLift ? "The rear wheel lifts because rear load reached zero." : json.rearWheelLiftRequested ? "The lift request did not reach the physical lift threshold." : "Both wheels remain loaded."}`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
     const sensors = Array.isArray(json.sensors) && json.sensors.length
@@ -214,7 +240,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     drawGraph(initialSpeed, deceleration, stoppingTime, trajectory);
 }
 
-function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, reactionTime = 1, dogDistance = 25, absEnabled = true }) {
+function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, reactionTime = 1, dogDistance = 25, dogEnabled = true, rearWheelLiftRequested = false, absEnabled = true }) {
     const initialSpeed = speed / 3.6;
     const g = 9.81;
     const dt = 0.01;
@@ -258,12 +284,14 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
             rearLoad = Math.max(0, mass * g / 2 - transfer);
             const frontLimit = friction * grip * frontLoad;
             const rearLimit = friction * grip * rearLoad;
-            actualFrontForce = Math.min(requestedFront, absEnabled ? frontLimit : frontLimit * 0.7);
-            actualRearForce = Math.min(requestedRear, absEnabled ? rearLimit : rearLimit * 0.7);
+            const liftForce = mass * g * 1.4 / (2 * cgHeight);
+            const liftAttempt = rearWheelLiftRequested && !absEnabled;
+            actualFrontForce = liftAttempt ? Math.min(frontLimit, Math.max(requestedFront, liftForce)) : Math.min(requestedFront, absEnabled ? frontLimit : frontLimit * 0.7);
+            actualRearForce = liftAttempt ? 0 : Math.min(requestedRear, absEnabled ? rearLimit : rearLimit * 0.7);
             forceAcceleration = -(actualFrontForce + actualRearForce) / mass;
         }
         absActive = absActive || (absEnabled && (actualFrontForce < requestedFront || actualRearForce < requestedRear));
-        rearWheelLift = rearLoad <= 1e-6;
+        rearWheelLift = rearLoad <= 1e-6 && rearWheelLiftRequested && !absEnabled;
         const actualBrakeForce = actualFrontForce + actualRearForce;
         const acceleration = -actualBrakeForce / mass;
         position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt);
@@ -299,11 +327,11 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     const reactionDistance = initialSpeed * reactionTime;
     const normalizedDogDistance = Math.min(200, Math.max(1, Number(dogDistance) || 25));
     const totalStoppingDistance = position + reactionDistance;
-    const dogHit = normalizedDogDistance <= totalStoppingDistance;
+    const dogHit = dogEnabled && normalizedDogDistance <= totalStoppingDistance;
     const impactSpeedKmh = dogHit
         ? Math.max(0, initialSpeed - Math.max(0, normalizedDogDistance - reactionDistance) * deceleration)
         : 0;
-    return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance, reactionTime, reactionDistance, dogDistance: normalizedDogDistance, dogHit, impactSpeedKmh, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
+    return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance, reactionTime, reactionDistance, dogDistance: normalizedDogDistance, dogEnabled, dogHit, impactSpeedKmh, rearWheelLiftRequested: rearWheelLiftRequested && !absEnabled, rearWheelLiftPreventedByAbs: rearWheelLiftRequested && absEnabled, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
 
 checkCloudflareConnection();
