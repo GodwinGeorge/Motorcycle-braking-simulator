@@ -146,6 +146,7 @@ int main()
             constexpr double PI = 3.14159265358979323846;
             constexpr double REFERENCE_RADIUS = 0.31;
             constexpr double REFERENCE_CG_HEIGHT = 0.62;
+            constexpr double WHEELBASE = 1.4;
             const double cgHeight = REFERENCE_CG_HEIGHT + (wheelRadius - REFERENCE_RADIUS);
             const double leanLimit = std::atan(REFERENCE_CG_HEIGHT / cgHeight) * 180.0 / PI;
             const bool fallen = leanAngle > leanLimit;
@@ -153,25 +154,6 @@ int main()
             const double wheelMass = mass * 0.04;
             const double referenceWheelInertia = 0.5 * wheelMass * REFERENCE_RADIUS * REFERENCE_RADIUS;
             const double effectiveMass = mass + (2.0 * referenceWheelInertia) / (wheelRadius * wheelRadius);
-            const double maximumBrakeForce = friction * mass * GRAVITY * leanGrip;
-            const double requestedFrontForce = brakeForce * frontBrakeBias / 100.0;
-            const double requestedRearForce = brakeForce - requestedFrontForce;
-            const double frontLoad = mass * GRAVITY * 0.62;
-            const double rearLoad = mass * GRAVITY - frontLoad;
-            const double frontLimit = friction * leanGrip * frontLoad;
-            const double rearLimit = friction * leanGrip * rearLoad;
-            const double manualScale = brakeForce > maximumBrakeForce
-                ? maximumBrakeForce * 0.7 / brakeForce
-                : 1.0;
-            const double actualFrontForce = absEnabled
-                ? std::min(requestedFrontForce, frontLimit)
-                : requestedFrontForce * manualScale;
-            const double actualRearForce = absEnabled
-                ? std::min(requestedRearForce, rearLimit)
-                : requestedRearForce * manualScale;
-            const double actualBrakeForce = std::min(actualFrontForce + actualRearForce, maximumBrakeForce);
-            const bool absActive = absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce);
-
             VehicleModel vehicle(
                 mass,
                 friction * leanGrip,
@@ -181,11 +163,6 @@ int main()
             vehicle.setInitialVelocity(
                 initialSpeed
             );
-
-
-            // Calculate maximum available brake force
-
-            const double deceleration = actualBrakeForce / mass;
 
 
             std::vector<SimulationPoint> data;
@@ -199,12 +176,23 @@ int main()
 
 
             double time = 0.0;
+            BrakingForces forces = calculateBrakingForces(
+                mass, brakeForce, friction, leanGrip, frontBrakeBias, absEnabled,
+                0.0, cgHeight, WHEELBASE
+            );
+            double deceleration = 0.0;
 
 
             // Run simulation
 
             while (vehicle.getVelocity() > 0.0)
             {
+                forces = calculateBrakingForces(
+                    mass, brakeForce, friction, leanGrip, frontBrakeBias, absEnabled,
+                    vehicle.getAcceleration(), cgHeight, WHEELBASE
+                );
+                const double actualBrakeForce = forces.frontForce + forces.rearForce;
+                deceleration = actualBrakeForce / mass;
                 vehicle.update(
                     DT,
                     actualBrakeForce
@@ -226,8 +214,6 @@ int main()
                 const double brakingRatio = deceleration > 0.0
                     ? std::clamp(std::abs(vehicle.getAcceleration()) / deceleration, 0.0, 1.0)
                     : 0.0;
-                const double frontLoadFactor = 1.0 + 0.12 * brakingRatio;
-                const double rearLoadFactor = 1.0 - 0.08 * brakingRatio;
                 const bool sensorSample = std::fmod(time, 1.0 / sensorRate) < DT;
                 const bool gpsSample = std::fmod(time, 1.0) < DT;
 
@@ -272,6 +258,8 @@ int main()
             response["stoppingDistance"] =
                 vehicle.getPosition();
 
+            const double actualBrakeForce = forces.frontForce + forces.rearForce;
+            constexpr double REACTION_TIME = 1.0;
             response["maxDeceleration"] =
                 actualBrakeForce / mass;
 
@@ -281,9 +269,16 @@ int main()
             response["actualBrakeForce"] =
                 actualBrakeForce;
 
-            response["absActive"] = absActive;
-            response["frontBrakeForce"] = actualFrontForce;
-            response["rearBrakeForce"] = actualRearForce;
+            response["absActive"] = forces.absActive;
+            response["frontBrakeForce"] = forces.frontForce;
+            response["rearBrakeForce"] = forces.rearForce;
+            response["frontLoad"] = forces.frontLoad;
+            response["rearLoad"] = forces.rearLoad;
+            response["rearWheelLift"] = forces.rearWheelLift;
+            response["reactionTime"] = REACTION_TIME;
+            response["reactionDistance"] = initialSpeed * REACTION_TIME;
+            response["totalStoppingDistance"] = vehicle.getPosition() + initialSpeed * REACTION_TIME;
+            response["model"] = "load-transfer-v1";
             response["fallen"] = fallen;
             response["leanLimit"] = leanLimit;
             response["effectiveMass"] = effectiveMass;

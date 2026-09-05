@@ -46,7 +46,7 @@ Pushing to `master` runs `.github/workflows/deploy-cf.yml`, which publishes `wor
 
 The simulator uses a simplified motorcycle braking model for education and experimentation. It is not certified safety software and does not replace measured vehicle validation.
 
-Motorcycle-specific study inputs include lean-angle grip reduction, approximate forward load transfer, front/rear brake bias, wheel-speed signals, and optional independent ABS force limiting. The ABS controller is intentionally simplified: it is not a production implementation and does not model hydraulic valves, pressure dynamics, tyre force curves, or a complete vehicle state estimator.
+Motorcycle-specific study inputs include lean-angle grip reduction, forward load transfer, front/rear brake bias, wheel-speed signals, and optional independent ABS force limiting. The same `load-transfer-v1` equations are implemented in the C++ server, Cloudflare Worker, browser fallback, Python adapter, and serverless adapters. The ABS controller is intentionally simplified: it is not a production implementation and does not model hydraulic valves, pressure dynamics, tyre force curves, or a complete vehicle state estimator.
 
 Maximum tyre-road braking force
 
@@ -65,6 +65,12 @@ where:
 The requested brake force is split by front brake bias. Forward load transfer changes the axle loads, and each channel is limited by its available grip. In Dual ABS mode, wheel-speed slip feedback reduces a channel when its estimated slip exceeds the target range. Manual mode models reduced usable grip during wheel lock.
 
 $$F_{front} \leq \mu N_{front}\max(0.05, \cos(\theta)), \qquad F_{rear} \leq \mu N_{rear}\max(0.05, \cos(\theta))$$
+
+For each timestep, braking acceleration transfers load forward using the shared wheelbase $L=1.4$ m and centre-of-mass height $h$:
+
+$$N_{front}=\frac{mg}{2}+\frac{m|a|h}{L}, \qquad N_{rear}=\max\left(0,\frac{mg}{2}-\frac{m|a|h}{L}\right)$$
+
+When $N_{rear}=0$, the rear wheel is lifted and rear braking force is zero. The force and load equations are solved for eight short iterations at each timestep so brake bias and rear lift affect the actual deceleration.
 
 Vehicle deceleration
 
@@ -255,6 +261,11 @@ Response (core fields)
   "deceleration": -6.80,
   "stoppingDistance": 31.46,
   "stoppingTime": 2.84,
+  "reactionDistance": 22.22,
+  "totalStoppingDistance": 53.68,
+  "frontBrakeForce": 1340.9,
+  "rearBrakeForce": 228.7,
+  "rearWheelLift": false,
   "absActive": true,
   "leanLimit": 45.0,
   "fallen": false,

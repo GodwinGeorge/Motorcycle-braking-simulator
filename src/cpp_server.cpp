@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "crow.h"
+#include "vehicleModel.hpp"
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
@@ -62,21 +63,46 @@ int main()
         double speed_kmh = r["speed"].d();
         double friction = r["friction"].d();
         double brakeForce = r["brakeForce"].d();
+        double wheelRadius = r["wheelRadius"].d();
+        double leanAngle = r["leanAngle"].d();
+        double frontBrakeBias = r["frontBrakeBias"].d();
+        bool absEnabled = r["absEnabled"].b();
 
         const double g = 9.81;
         double v0 = speed_kmh / 3.6;
-        double maxBrakeForce = friction * mass * g;
-        double actualBrakeForce = std::min(brakeForce, maxBrakeForce);
-        double deceleration = actualBrakeForce / mass;
-
-        double stoppingTime = v0 / deceleration;
-        double stoppingDistance = (v0 * v0) / (2.0 * deceleration);
+        const double leanGrip = std::max(0.05, std::cos(leanAngle * 3.141592653589793 / 180.0));
+        const double cgHeight = 0.62 + wheelRadius - 0.31;
+        double velocity = v0;
+        double stoppingTime = 0.0;
+        double stoppingDistance = 0.0;
+        double acceleration = 0.0;
+        BrakingForces forces{mass * g / 2.0, mass * g / 2.0, 0.0, 0.0, false, false};
+        while (velocity > 0.0 && stoppingTime < 300.0) {
+            forces = calculateBrakingForces(mass, brakeForce, friction, leanGrip, frontBrakeBias, absEnabled, acceleration, cgHeight, 1.4);
+            const double actualBrakeForce = forces.frontForce + forces.rearForce;
+            acceleration = -actualBrakeForce / mass;
+            stoppingDistance += std::max(0.0, velocity * 0.01 + 0.5 * acceleration * 0.0001);
+            velocity = std::max(0.0, velocity + acceleration * 0.01);
+            stoppingTime += 0.01;
+        }
+        const double actualBrakeForce = forces.frontForce + forces.rearForce;
+        const double reactionDistance = v0;
 
         crow::json::wvalue res;
         res["stoppingTime"] = stoppingTime;
         res["stoppingDistance"] = stoppingDistance;
-        res["deceleration"] = -deceleration;
+        res["totalStoppingDistance"] = stoppingDistance + reactionDistance;
+        res["reactionTime"] = 1.0;
+        res["reactionDistance"] = reactionDistance;
+        res["deceleration"] = -(v0 / stoppingTime);
         res["actualBrakeForce"] = actualBrakeForce;
+        res["frontBrakeForce"] = forces.frontForce;
+        res["rearBrakeForce"] = forces.rearForce;
+        res["frontLoad"] = forces.frontLoad;
+        res["rearLoad"] = forces.rearLoad;
+        res["rearWheelLift"] = forces.rearWheelLift;
+        res["absActive"] = forces.absActive;
+        res["model"] = "load-transfer-v1";
 
         crow::response resp{res};
         resp.add_header("Access-Control-Allow-Origin", "*");

@@ -181,11 +181,16 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
 
     document.getElementById("stoppingTime").textContent = stoppingTime.toFixed(2);
     document.getElementById("stoppingDistance").textContent = json.stoppingDistance.toFixed(2);
+    document.getElementById("reactionDistance").textContent = json.reactionDistance.toFixed(2);
+    document.getElementById("totalStoppingDistance").textContent = json.totalStoppingDistance.toFixed(2);
     document.getElementById("deceleration").textContent = deceleration.toFixed(2);
     document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
-    setConfigurationHint(json.absActive
-        ? "Dual-channel ABS is modulating the front/rear force limits"
-        : "Simulation complete · no ABS modulation required");
+    setConfigurationHint(json.rearWheelLift
+        ? "Rear wheel lift detected · front load is carrying the brake force"
+        : json.absActive
+            ? "Dual-channel ABS is modulating the front/rear force limits"
+            : "Simulation complete · no ABS modulation required");
+    document.getElementById("resultExplanation").textContent = `The ${json.reactionDistance.toFixed(1)} m reaction distance assumes 1.0 s before braking. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
     const sensors = Array.isArray(json.sensors) && json.sensors.length
@@ -196,7 +201,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
         : Array.isArray(json.data) && json.data.length
             ? json.data
         : buildBrowserSimulation(payload).trajectory;
-    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate, payload, json.leanLimit, trajectory);
+    animateMotorcycle(initialSpeed, deceleration, stoppingTime, json.stoppingDistance, json.actualBrakeForce, sensors, sensorRate, payload, json.leanLimit, trajectory, json.rearWheelLift);
     drawGraph(initialSpeed, deceleration, stoppingTime, trajectory);
 }
 
@@ -232,21 +237,26 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     let actualFrontForce = 0;
     let actualRearForce = 0;
     let absActive = false;
+    let frontLoad = mass * g / 2;
+    let rearLoad = mass * g / 2;
+    let rearWheelLift = false;
 
     for (let step = 0; velocity > 0 && step < 30000; step += 1) {
-        const frontSlip = clamp(1 - frontWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3);
-        const rearSlip = clamp(1 - rearWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3);
-        const frontLoad = mass * g * (0.5 + clamp(Math.max(0, -previousAcceleration) / g * 0.12, 0, 0.12));
-        const rearLoad = mass * g - frontLoad;
-        const frontLimit = friction * grip * frontLoad;
-        const rearLimit = friction * grip * Math.max(0, rearLoad);
-        const frontScale = absEnabled ? clamp(1 - Math.max(0, frontSlip - 0.1) * 1.5, 0.7, 1) : (requestedFront > frontLimit ? 0.7 : 1);
-        const rearScale = absEnabled ? clamp(1 - Math.max(0, rearSlip - 0.1) * 1.5, 0.7, 1) : (requestedRear > rearLimit ? 0.7 : 1);
-        actualFrontForce = absEnabled ? Math.min(requestedFront * frontScale, frontLimit) : requestedFront * manualScale;
-        actualRearForce = absEnabled ? Math.min(requestedRear * rearScale, rearLimit) : requestedRear * manualScale;
-        absActive = absActive || frontScale < 0.999 || rearScale < 0.999;
+        let forceAcceleration = previousAcceleration;
+        for (let iteration = 0; iteration < 8; iteration += 1) {
+            const transfer = mass * Math.max(0, -forceAcceleration) * cgHeight / 1.4;
+            frontLoad = mass * g / 2 + transfer;
+            rearLoad = Math.max(0, mass * g / 2 - transfer);
+            const frontLimit = friction * grip * frontLoad;
+            const rearLimit = friction * grip * rearLoad;
+            actualFrontForce = Math.min(requestedFront, absEnabled ? frontLimit : frontLimit * 0.7);
+            actualRearForce = Math.min(requestedRear, absEnabled ? rearLimit : rearLimit * 0.7);
+            forceAcceleration = -(actualFrontForce + actualRearForce) / mass;
+        }
+        absActive = absActive || (absEnabled && (actualFrontForce < requestedFront || actualRearForce < requestedRear));
+        rearWheelLift = rearLoad <= 1e-6;
         const actualBrakeForce = actualFrontForce + actualRearForce;
-        const acceleration = -actualBrakeForce / effectiveMass;
+        const acceleration = -actualBrakeForce / mass;
         position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt);
         velocity = Math.max(0, velocity + acceleration * dt);
         time += dt;
@@ -276,7 +286,9 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     }
     const actualBrakeForce = actualFrontForce + actualRearForce;
     const deceleration = position > 0 ? (initialSpeed * initialSpeed) / (2 * position) : 0;
-    return { stoppingTime: time, stoppingDistance: position, deceleration: -deceleration, actualBrakeForce, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
+    const reactionTime = 1;
+    const reactionDistance = initialSpeed * reactionTime;
+    return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
 
 checkCloudflareConnection();
@@ -308,7 +320,7 @@ function updateMotorcycleWheels(wheelRadius) {
     });
 }
 
-function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate, payload, leanLimit, trajectory) {
+function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDistance, actualBrakeForce, sensors, sensorRate, payload, leanLimit, trajectory, rearWheelLift) {
     status.textContent = "Braking...";
     status.className = "status-pill is-running";
     motorcycle.style.left = "20px";
@@ -317,6 +329,7 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
     motorcycle.querySelector(".leaning-body").style.transform = `rotateZ(${visualLean}deg)`;
     updateMotorcycleWheels(payload.wheelRadius);
     motorcycle.classList.remove("is-fallen");
+    motorcycle.classList.toggle("is-rear-lift", Boolean(rearWheelLift));
     motorcycle.classList.add("is-braking");
     motorcycle.classList.add("is-moving");
     brakeImpressions.classList.remove("is-visible");

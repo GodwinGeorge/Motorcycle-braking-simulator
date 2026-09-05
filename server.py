@@ -35,22 +35,56 @@ class SimHandler(BaseHTTPRequestHandler):
             speed_kmh = float(data.get('speed', 0))
             mu = float(data.get('friction', 0))
             F = float(data.get('brakeForce', 0))
+            bias = min(100.0, max(0.0, float(data.get('frontBrakeBias', 70))))
+            abs_enabled = data.get('absEnabled', True) is not False
+            wheel_radius = max(0.1, float(data.get('wheelRadius', 0.31)))
+            lean_angle = float(data.get('leanAngle', 0))
 
+            from math import cos, radians
             g = 9.81
             v0 = speed_kmh / 3.6
-            maxF = mu * m * g
-            actualF = min(F, maxF)
+            grip = max(0.05, cos(radians(lean_angle)))
+            cg_height = 0.62 + wheel_radius - 0.31
+            requested_front = F * bias / 100.0
+            requested_rear = F - requested_front
+            velocity = v0
+            position = 0.0
+            stopping_time = 0.0
+            acceleration = 0.0
+            front_load = rear_load = m * g / 2.0
+            actual_front = actual_rear = 0.0
+            while velocity > 0 and stopping_time < 300:
+                for _ in range(8):
+                    transfer = m * max(0.0, -acceleration) * cg_height / 1.4
+                    front_load = m * g / 2.0 + transfer
+                    rear_load = max(0.0, m * g / 2.0 - transfer)
+                    actual_front = min(requested_front, (1.0 if abs_enabled else 0.7) * mu * grip * front_load)
+                    actual_rear = min(requested_rear, (1.0 if abs_enabled else 0.7) * mu * grip * rear_load)
+                    acceleration = -(actual_front + actual_rear) / m
+                position += max(0.0, velocity * 0.01 + 0.5 * acceleration * 0.0001)
+                velocity = max(0.0, velocity + acceleration * 0.01)
+                stopping_time += 0.01
+            actualF = actual_front + actual_rear
             if actualF <= 0 or m <= 0:
                 raise ValueError('invalid physical parameters')
-            decel = actualF / m
-            stopping_time = v0 / decel
-            stopping_distance = v0 * v0 / (2 * decel)
+            decel = v0 / stopping_time
+            reaction_distance = v0
 
             result = {
                 'stoppingTime': stopping_time,
-                'stoppingDistance': stopping_distance,
+                'stoppingDistance': position,
+                'totalStoppingDistance': position + reaction_distance,
+                'reactionTime': 1.0,
+                'reactionDistance': reaction_distance,
                 'deceleration': -decel,
-                'actualBrakeForce': actualF
+                'actualBrakeForce': actualF,
+                'frontBrakeForce': actual_front,
+                'rearBrakeForce': actual_rear,
+                'frontLoad': front_load,
+                'rearLoad': rear_load,
+                'rearWheelLift': rear_load <= 1e-6,
+                'absActive': abs_enabled,
+                'model': 'load-transfer-v1'
             }
 
             self._set_headers(200)

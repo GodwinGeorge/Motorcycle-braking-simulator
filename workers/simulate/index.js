@@ -77,7 +77,6 @@ async function handleRequest(request) {
   const maxBrakeForce = friction * mass * g * leanGrip
   const requestedFrontForce = brakeForce * frontBrakeBias / 100
   const requestedRearForce = brakeForce - requestedFrontForce
-  const manualScale = brakeForce > maxBrakeForce ? maxBrakeForce * 0.7 / brakeForce : 1
   const sensors = []
   const trajectory = [{ time: 0, velocity: v0, position: 0, acceleration: 0 }]
   const sampleInterval = 1 / sensorRate
@@ -105,25 +104,22 @@ async function handleRequest(request) {
   const clamp = (value, low, high) => Math.min(high, Math.max(low, value))
 
   for (let step = 0; velocity > 0 && step < 30000; step += 1) {
-    const wheelReferenceSpeed = Math.max(frontWheelSpeed, rearWheelSpeed) * wheelRadius
-    const wheelSlipFront = clamp(1 - frontWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3)
-    const wheelSlipRear = clamp(1 - rearWheelSpeed * wheelRadius / Math.max(fusedSpeed, 0.1), 0, 0.3)
-    const decelEstimate = Math.max(0, -previousAcceleration)
-    const frontLoad = mass * g * (0.5 + clamp(decelEstimate / g * 0.12, 0, 0.12))
-    const rearLoad = mass * g - frontLoad
-    const frontLimit = friction * leanGrip * frontLoad
-    const rearLimit = friction * leanGrip * Math.max(0, rearLoad)
-    const frontScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipFront - 0.1) * 1.5, 0.7, 1) : (requestedFrontForce > frontLimit ? 0.7 : 1)
-    const rearScale = absEnabled ? clamp(1 - Math.max(0, wheelSlipRear - 0.1) * 1.5, 0.7, 1) : (requestedRearForce > rearLimit ? 0.7 : 1)
-    actualFrontForce = absEnabled
-      ? Math.min(requestedFrontForce * frontScale, frontLimit)
-      : requestedFrontForce * manualScale
-    actualRearForce = absEnabled
-      ? Math.min(requestedRearForce * rearScale, rearLimit)
-      : requestedRearForce * manualScale
-    absActive = absActive || frontScale < 0.999 || rearScale < 0.999
+    let forceAcceleration = previousAcceleration
+    let frontLoad = mass * g / 2
+    let rearLoad = frontLoad
+    for (let iteration = 0; iteration < 8; iteration += 1) {
+      const transfer = mass * Math.max(0, -forceAcceleration) * cgHeight / 1.4
+      frontLoad = mass * g / 2 + transfer
+      rearLoad = Math.max(0, mass * g / 2 - transfer)
+      const frontLimit = friction * leanGrip * frontLoad
+      const rearLimit = friction * leanGrip * rearLoad
+      actualFrontForce = Math.min(requestedFrontForce, absEnabled ? frontLimit : frontLimit * 0.7)
+      actualRearForce = Math.min(requestedRearForce, absEnabled ? rearLimit : rearLimit * 0.7)
+      forceAcceleration = -(actualFrontForce + actualRearForce) / mass
+    }
+    absActive = absActive || (absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce))
     const actualBrakeForce = actualFrontForce + actualRearForce
-    const acceleration = -actualBrakeForce / effectiveMass
+    const acceleration = -actualBrakeForce / mass
 
     position += Math.max(0, velocity * dt + 0.5 * acceleration * dt * dt)
     velocity = Math.max(0, velocity + acceleration * dt)
@@ -131,8 +127,11 @@ async function handleRequest(request) {
     previousAcceleration = acceleration
     trajectory.push({ time, velocity, position, acceleration })
 
-    const frontSlip = requestedFrontForce > frontLimit ? clamp((requestedFrontForce - frontLimit) / requestedFrontForce, 0, 0.25) : 0
-    const rearSlip = requestedRearForce > rearLimit ? clamp((requestedRearForce - rearLimit) / requestedRearForce, 0, 0.25) : 0
+    const rearWheelLift = rearLoad <= 1e-6
+    const finalFrontLimit = friction * leanGrip * frontLoad
+    const finalRearLimit = friction * leanGrip * rearLoad
+    const frontSlip = requestedFrontForce > finalFrontLimit ? clamp((requestedFrontForce - finalFrontLimit) / requestedFrontForce, 0, 0.25) : 0
+    const rearSlip = requestedRearForce > finalRearLimit ? clamp((requestedRearForce - finalRearLimit) / requestedRearForce, 0, 0.25) : 0
     frontWheelSpeed = Math.max(0, velocity * (1 - frontSlip) / wheelRadius + noise(step + 1))
     rearWheelSpeed = Math.max(0, velocity * (1 - rearSlip) / wheelRadius + noise(step + 2))
     const imuAcceleration = acceleration + noise(step + 3)
@@ -164,6 +163,9 @@ async function handleRequest(request) {
   }
 
   const actualBrakeForce = actualFrontForce + actualRearForce
+  const reactionTime = 1
+  const reactionDistance = v0 * reactionTime
+  const rearWheelLift = mass * g / 2 - mass * Math.max(0, -previousAcceleration) * cgHeight / 1.4 <= 1e-6
   const deceleration = time > 0 ? v0 / time : 0
   const averageDeceleration = position > 0 ? (v0 * v0) / (2 * position) : 0
 
@@ -171,11 +173,15 @@ async function handleRequest(request) {
     apiVersion: '2',
     stoppingTime: time,
     stoppingDistance: position,
+    totalStoppingDistance: position + reactionDistance,
+    reactionTime,
+    reactionDistance,
     deceleration: -averageDeceleration,
     maxDeceleration: averageDeceleration,
     actualBrakeForce: actualBrakeForce,
     frontBrakeForce: actualFrontForce,
     rearBrakeForce: actualRearForce,
+    rearWheelLift,
     absActive: absEnabled && absActive,
     model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true, sensorFusion: true, cgHeight, leanLimit, effectiveMass },
     fallen,
