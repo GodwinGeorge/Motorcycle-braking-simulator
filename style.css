@@ -186,8 +186,8 @@ body[data-road="track"] .road-post { border-top-color: #d8d2c0; }
 #dog .dog-leg-one { left: 14px; } #dog .dog-leg-two { left: 29px; }
 #dog .dog-tail { right: 1px; bottom: 22px; width: 15px; height: 5px; border-radius: 5px; transform: rotate(-35deg); transform-origin: left center; }
 #dog strong { position: absolute; bottom: -15px; left: 4px; color: #fffdf8; font: 8px 'DM Mono', monospace; text-transform: uppercase; }
-#dog.is-hit { filter: grayscale(1); opacity: .55; transform: rotate(90deg) translate(-4px, 12px); transform-origin: 45% 75%; }
-#dog.is-hit strong { color: #f8df9c; }
+#dog.is-dead { filter: grayscale(1); opacity: .55; transform: rotate(90deg) translate(-4px, 12px); transform-origin: 45% 75%; }
+#dog.is-dead strong { color: #f8df9c; }
 #dog.is-safe { animation: dog-alert .8s ease-in-out infinite alternate; }
 @keyframes dog-alert { to { transform: translateY(-2px); } }
 
