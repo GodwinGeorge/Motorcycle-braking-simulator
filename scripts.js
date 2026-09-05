@@ -26,9 +26,9 @@ const sensorTelemetry = {
 };
 
 const presets = {
-    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.02, gpsNoise: 1.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, absEnabled: true },
-    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.04, gpsNoise: 2.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, absEnabled: true },
-    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500, sensorRate: 100, sensorNoise: 0.03, gpsNoise: 1.0, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, absEnabled: true }
+    city: { mass: 200, speed: 60, friction: 0.8, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.02, gpsNoise: 1.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true },
+    wet: { mass: 200, speed: 80, friction: 0.45, brakeForce: 5000, sensorRate: 100, sensorNoise: 0.04, gpsNoise: 2.5, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true },
+    track: { mass: 190, speed: 140, friction: 1.2, brakeForce: 6500, sensorRate: 100, sensorNoise: 0.03, gpsNoise: 1.0, wheelRadius: 0.31, leanAngle: 0, frontBrakeBias: 70, reactionTime: 1, absEnabled: true }
 };
 
 const cloudEndpoint = 'https://vehicle-braking-worker.godwin-veh-sim.workers.dev';
@@ -44,7 +44,8 @@ const inputLabels = {
     gpsNoise: "GPS position noise",
     wheelRadius: "Wheel radius",
     leanAngle: "Lean angle",
-    frontBrakeBias: "Front brake bias"
+    frontBrakeBias: "Front brake bias",
+    reactionTime: "Reaction time"
 };
 
 function setConfigurationHint(message, isError = false) {
@@ -133,13 +134,14 @@ async function simulate() {
     const wheelRadius = Number(document.getElementById("wheelRadius").value);
     const leanAngle = Number(document.getElementById("leanAngle").value);
     const frontBrakeBias = Number(document.getElementById("frontBrakeBias").value);
+    const reactionTime = Number(document.getElementById("reactionTime").value);
     const absEnabled = document.getElementById("absEnabled").value === "true";
 
     status.textContent = "Contacting backend...";
     simulateButton.disabled = true;
     simulateButton.querySelector("span").textContent = "Running simulation";
 
-    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, absEnabled };
+    const payload = { mass, speed: initialSpeedKmh, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle, frontBrakeBias, reactionTime, absEnabled };
 
     try {
         const endpoint = isLocalHost
@@ -190,7 +192,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
         : json.absActive
             ? "Dual-channel ABS is modulating the front/rear force limits"
             : "Simulation complete · no ABS modulation required");
-    document.getElementById("resultExplanation").textContent = `The ${json.reactionDistance.toFixed(1)} m reaction distance assumes 1.0 s before braking. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
+    document.getElementById("resultExplanation").textContent = `The ${json.reactionDistance.toFixed(1)} m reaction distance uses ${json.reactionTime.toFixed(1)} s of reaction time before braking. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
     const sensors = Array.isArray(json.sensors) && json.sensors.length
@@ -205,7 +207,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     drawGraph(initialSpeed, deceleration, stoppingTime, trajectory);
 }
 
-function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, absEnabled = true }) {
+function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate, sensorNoise, gpsNoise, wheelRadius, leanAngle = 0, frontBrakeBias = 70, reactionTime = 1, absEnabled = true }) {
     const initialSpeed = speed / 3.6;
     const g = 9.81;
     const dt = 0.01;
@@ -286,7 +288,7 @@ function buildBrowserSimulation({ mass, speed, friction, brakeForce, sensorRate,
     }
     const actualBrakeForce = actualFrontForce + actualRearForce;
     const deceleration = position > 0 ? (initialSpeed * initialSpeed) / (2 * position) : 0;
-    const reactionTime = 1;
+    reactionTime = Math.min(5, Math.max(0, Number(reactionTime) || 0));
     const reactionDistance = initialSpeed * reactionTime;
     return { stoppingTime: time, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, deceleration: -deceleration, actualBrakeForce, frontBrakeForce: actualFrontForce, rearBrakeForce: actualRearForce, frontLoad, rearLoad, rearWheelLift, effectiveMass, sensors, trajectory, absActive: absEnabled && absActive, fallen: leanAngle > leanLimit, leanLimit };
 }
