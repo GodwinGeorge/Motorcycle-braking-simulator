@@ -184,7 +184,7 @@ async function handleRequest(request) {
     : 0
 
   const result = {
-    apiVersion: '2',
+    apiVersion: '3',
     stoppingTime: time,
     stoppingDistance: position,
     totalStoppingDistance: position + reactionDistance,
@@ -202,6 +202,7 @@ async function handleRequest(request) {
     frontBrakeForce: actualFrontForce,
     rearBrakeForce: actualRearForce,
     rearWheelLift,
+    rearLoad,
     absActive: absEnabled && absActive,
     model: { leanAngle, frontBrakeBias, absEnabled, loadTransfer: true, sensorFusion: true, cgHeight, leanLimit, effectiveMass },
     fallen,

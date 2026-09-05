@@ -212,6 +212,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
     document.getElementById("totalStoppingDistance").textContent = json.totalStoppingDistance.toFixed(2);
     document.getElementById("deceleration").textContent = deceleration.toFixed(2);
     document.getElementById("actualBrakeForce").textContent = json.actualBrakeForce.toFixed(0);
+    document.getElementById("rearLoad").textContent = Number(json.rearLoad || 0).toFixed(0);
     setConfigurationHint(json.rearWheelLiftPreventedByAbs
         ? "ABS is active · rear wheel lift request prevented"
         : json.dogHit
