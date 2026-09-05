@@ -17,9 +17,10 @@ https://godwingeorge.github.io/Motorcycle-braking-simulator/
 Open the live demo:
 1. Choose a road profile: City, Wet, or Track.
 2. Adjust motorcycle mass, initial speed, road friction, and brake force.
-3. Select Run Simulation.
-4. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
-5. Review stopping time, stopping distance, average deceleration, and actual brake force in the result cards.
+3. Set the reaction time used to calculate the distance traveled before braking.
+4. Select Run Simulation.
+5. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, and velocity graph update.
+6. Review reaction distance, braking distance, total stopping distance, and the physical brake results.
 
 The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI uses the deployed API when available and falls back to the browser model, including sensor telemetry, when the API is unavailable.
 
@@ -93,6 +94,14 @@ $$t = \frac{v_0}{|a|}$$
 Stopping distance
 
 $$d = \frac{v_0^2}{2|a|}$$
+
+Reaction distance
+
+Reaction distance is separate from the braking trajectory. The user-selected reaction time is clamped to 0-5 seconds and applied before braking begins:
+
+$$d_{reaction}=v_0 t_{reaction}, \qquad d_{total}=d_{reaction}+d_{braking}$$
+
+The default reaction time is 1 second. It affects only the reaction and total distances, not tyre load transfer or wheel lift during braking.
 
 The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
 
@@ -251,6 +260,7 @@ Request
   "wheelRadius": 0.31,
   "leanAngle": 0,
   "frontBrakeBias": 70,
+  "reactionTime": 1,
   "absEnabled": true
 }
 
@@ -261,6 +271,7 @@ Response (core fields)
   "deceleration": -6.80,
   "stoppingDistance": 31.46,
   "stoppingTime": 2.84,
+  "reactionTime": 1.0,
   "reactionDistance": 22.22,
   "totalStoppingDistance": 53.68,
   "frontBrakeForce": 1340.9,

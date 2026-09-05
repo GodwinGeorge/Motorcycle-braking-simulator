@@ -39,6 +39,7 @@ class SimHandler(BaseHTTPRequestHandler):
             abs_enabled = data.get('absEnabled', True) is not False
             wheel_radius = max(0.1, float(data.get('wheelRadius', 0.31)))
             lean_angle = float(data.get('leanAngle', 0))
+            reaction_time = min(5.0, max(0.0, float(data.get('reactionTime', 1))))
 
             from math import cos, radians
             g = 9.81
@@ -68,13 +69,13 @@ class SimHandler(BaseHTTPRequestHandler):
             if actualF <= 0 or m <= 0:
                 raise ValueError('invalid physical parameters')
             decel = v0 / stopping_time
-            reaction_distance = v0
+            reaction_distance = v0 * reaction_time
 
             result = {
                 'stoppingTime': stopping_time,
                 'stoppingDistance': position,
                 'totalStoppingDistance': position + reaction_distance,
-                'reactionTime': 1.0,
+                'reactionTime': reaction_time,
                 'reactionDistance': reaction_distance,
                 'deceleration': -decel,
                 'actualBrakeForce': actualF,

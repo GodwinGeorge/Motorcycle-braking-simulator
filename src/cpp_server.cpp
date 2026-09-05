@@ -66,7 +66,9 @@ int main()
         double wheelRadius = r["wheelRadius"].d();
         double leanAngle = r["leanAngle"].d();
         double frontBrakeBias = r["frontBrakeBias"].d();
+        double reactionTime = r["reactionTime"].d();
         bool absEnabled = r["absEnabled"].b();
+        reactionTime = std::clamp(reactionTime, 0.0, 5.0);
 
         const double g = 9.81;
         double v0 = speed_kmh / 3.6;
@@ -86,13 +88,13 @@ int main()
             stoppingTime += 0.01;
         }
         const double actualBrakeForce = forces.frontForce + forces.rearForce;
-        const double reactionDistance = v0;
+        const double reactionDistance = v0 * reactionTime;
 
         crow::json::wvalue res;
         res["stoppingTime"] = stoppingTime;
         res["stoppingDistance"] = stoppingDistance;
         res["totalStoppingDistance"] = stoppingDistance + reactionDistance;
-        res["reactionTime"] = 1.0;
+        res["reactionTime"] = reactionTime;
         res["reactionDistance"] = reactionDistance;
         res["deceleration"] = -(v0 / stoppingTime);
         res["actualBrakeForce"] = actualBrakeForce;

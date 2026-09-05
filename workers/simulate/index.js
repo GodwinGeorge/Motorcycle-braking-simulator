@@ -56,6 +56,7 @@ async function handleRequest(request) {
   const wheelRadius = Math.max(numberOr(data.wheelRadius, 0.31), 0.1)
   const leanAngle = Math.min(Math.max(numberOr(data.leanAngle, 0), 0), 60)
   const frontBrakeBias = Math.min(Math.max(numberOr(data.frontBrakeBias, 70), 0), 100)
+  const reactionTime = Math.min(Math.max(numberOr(data.reactionTime, 1), 0), 5)
   const absEnabled = data.absEnabled !== false
   const referenceRadius = 0.31
   const referenceCgHeight = 0.62
@@ -163,7 +164,6 @@ async function handleRequest(request) {
   }
 
   const actualBrakeForce = actualFrontForce + actualRearForce
-  const reactionTime = 1
   const reactionDistance = v0 * reactionTime
   const rearWheelLift = mass * g / 2 - mass * Math.max(0, -previousAcceleration) * cgHeight / 1.4 <= 1e-6
   const deceleration = time > 0 ? v0 / time : 0

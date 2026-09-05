@@ -26,6 +26,7 @@ exports.handler = async function(event, context) {
   const speed_kmh = Number(data.speed) || 100
   const friction = Number(data.friction) || 0.8
   const brakeForce = Number(data.brakeForce) || 5000
+  const reactionTime = Math.min(5, Math.max(0, Number.isFinite(Number(data.reactionTime)) ? Number(data.reactionTime) : 1))
 
   const g = 9.81
   const v0 = speed_kmh / 3.6
@@ -49,11 +50,11 @@ exports.handler = async function(event, context) {
     stoppingTime += 0.01
   }
   const actualBrakeForce = frontForce + rearForce
-  const reactionDistance = v0
+  const reactionDistance = v0 * reactionTime
 
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ stoppingTime, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime: 1, reactionDistance, deceleration: -(v0 / stoppingTime), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6, absActive: absEnabled, model: 'load-transfer-v1' })
+    body: JSON.stringify({ stoppingTime, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, deceleration: -(v0 / stoppingTime), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6, absActive: absEnabled, model: 'load-transfer-v1' })
   }
 }

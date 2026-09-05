@@ -120,6 +120,7 @@ int main()
             double sensorRate = body["sensorRate"].d();
             double leanAngle = body["leanAngle"].d();
             double frontBrakeBias = body["frontBrakeBias"].d();
+            double reactionTime = body["reactionTime"].d();
             bool absEnabled = body["absEnabled"].b();
 
             if (sensorNoise <= 0.0) sensorNoise = 0.02;
@@ -129,6 +130,7 @@ int main()
             sensorRate = std::clamp(sensorRate, 10.0, 100.0);
             leanAngle = std::clamp(leanAngle, 0.0, 60.0);
             frontBrakeBias = std::clamp(frontBrakeBias, 0.0, 100.0);
+            reactionTime = std::clamp(reactionTime, 0.0, 5.0);
 
 
             // Convert km/h → m/s
@@ -259,7 +261,6 @@ int main()
                 vehicle.getPosition();
 
             const double actualBrakeForce = forces.frontForce + forces.rearForce;
-            constexpr double REACTION_TIME = 1.0;
             response["maxDeceleration"] =
                 actualBrakeForce / mass;
 
@@ -275,9 +276,9 @@ int main()
             response["frontLoad"] = forces.frontLoad;
             response["rearLoad"] = forces.rearLoad;
             response["rearWheelLift"] = forces.rearWheelLift;
-            response["reactionTime"] = REACTION_TIME;
-            response["reactionDistance"] = initialSpeed * REACTION_TIME;
-            response["totalStoppingDistance"] = vehicle.getPosition() + initialSpeed * REACTION_TIME;
+            response["reactionTime"] = reactionTime;
+            response["reactionDistance"] = initialSpeed * reactionTime;
+            response["totalStoppingDistance"] = vehicle.getPosition() + initialSpeed * reactionTime;
             response["model"] = "load-transfer-v1";
             response["fallen"] = fallen;
             response["leanLimit"] = leanLimit;

@@ -15,6 +15,7 @@ export default async function handler(req, res) {
   const speed_kmh = Number(data.speed) || 100
   const friction = Number(data.friction) || 0.8
   const brakeForce = Number(data.brakeForce) || 5000
+  const reactionTime = Math.min(5, Math.max(0, Number.isFinite(Number(data.reactionTime)) ? Number(data.reactionTime) : 1))
   const bias = Math.min(100, Math.max(0, Number(data.frontBrakeBias) || 70))
   const absEnabled = data.absEnabled !== false
   const v0 = speed_kmh / 3.6
@@ -38,9 +39,9 @@ export default async function handler(req, res) {
     time += 0.01
   }
   const actualBrakeForce = frontForce + rearForce
-  const reactionDistance = v0
+  const reactionDistance = v0 * reactionTime
 
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Content-Type', 'application/json')
-  return res.status(200).json({ stoppingTime: time, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime: 1, reactionDistance, deceleration: -(v0 / time), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6, absActive: absEnabled, model: 'load-transfer-v1' })
+  return res.status(200).json({ stoppingTime: time, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, deceleration: -(v0 / time), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6, absActive: absEnabled, model: 'load-transfer-v1' })
 }
