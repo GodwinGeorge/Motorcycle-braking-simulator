@@ -28,11 +28,14 @@ exports.handler = async function(event, context) {
   const brakeForce = Number(data.brakeForce) || 5000
   const reactionTime = Math.min(5, Math.max(0, Number.isFinite(Number(data.reactionTime)) ? Number(data.reactionTime) : 1))
   const dogDistance = Math.min(200, Math.max(1, Number.isFinite(Number(data.dogDistance)) ? Number(data.dogDistance) : 25))
+  const dogEnabled = data.dogEnabled !== false
+  const requestedRearWheelLift = data.rearWheelLiftRequested === true
 
   const g = 9.81
   const v0 = speed_kmh / 3.6
   const bias = Math.min(100, Math.max(0, Number(data.frontBrakeBias) || 70))
   const absEnabled = data.absEnabled !== false
+  const rearWheelLiftRequested = requestedRearWheelLift && !absEnabled
   const cgHeight = 0.62 + ((Number(data.wheelRadius) || 0.31) - 0.31)
   const grip = Math.max(0.05, Math.cos((Number(data.leanAngle) || 0) * Math.PI / 180))
   const requestedFront = brakeForce * bias / 100
@@ -43,8 +46,9 @@ exports.handler = async function(event, context) {
     const transfer = mass * Math.max(0, -acceleration) * cgHeight / 1.4
     frontLoad = mass * g / 2 + transfer
     rearLoad = Math.max(0, mass * g / 2 - transfer)
-    frontForce = Math.min(requestedFront, (absEnabled ? 1 : 0.7) * friction * grip * frontLoad)
-    rearForce = Math.min(requestedRear, (absEnabled ? 1 : 0.7) * friction * grip * rearLoad)
+    const liftForce = mass * g * 1.4 / (2 * cgHeight)
+    frontForce = rearWheelLiftRequested ? Math.min(friction * grip * frontLoad, Math.max(requestedFront, liftForce)) : Math.min(requestedFront, (absEnabled ? 1 : 0.7) * friction * grip * frontLoad)
+    rearForce = rearWheelLiftRequested ? 0 : Math.min(requestedRear, (absEnabled ? 1 : 0.7) * friction * grip * rearLoad)
     acceleration = -(frontForce + rearForce) / mass
     position += Math.max(0, velocity * 0.01 + 0.5 * acceleration * 0.0001)
     velocity = Math.max(0, velocity + acceleration * 0.01)
@@ -53,13 +57,13 @@ exports.handler = async function(event, context) {
   const actualBrakeForce = frontForce + rearForce
   const reactionDistance = v0 * reactionTime
   const brakingDeceleration = position > 0 ? (v0 * v0) / (2 * position) : 0
-  const dogHit = dogDistance <= position + reactionDistance
+  const dogHit = dogEnabled && dogDistance <= position + reactionDistance
   const distanceAfterReaction = Math.max(0, dogDistance - reactionDistance)
   const impactSpeedKmh = dogHit ? Math.sqrt(Math.max(0, v0 * v0 - 2 * brakingDeceleration * distanceAfterReaction)) * 3.6 : 0
 
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify({ stoppingTime, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, dogDistance, dogHit, impactSpeedKmh, deceleration: -(v0 / stoppingTime), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6, absActive: absEnabled, model: 'load-transfer-v1' })
+    body: JSON.stringify({ stoppingTime, stoppingDistance: position, totalStoppingDistance: position + reactionDistance, reactionTime, reactionDistance, dogDistance, dogEnabled, dogHit, impactSpeedKmh, deceleration: -(v0 / stoppingTime), actualBrakeForce, frontBrakeForce: frontForce, rearBrakeForce: rearForce, frontLoad, rearLoad, rearWheelLift: rearLoad <= 1e-6 && rearWheelLiftRequested, rearWheelLiftRequested, rearWheelLiftPreventedByAbs: requestedRearWheelLift && absEnabled, absActive: absEnabled, model: 'load-transfer-v1' })
   }
 }

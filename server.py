@@ -41,6 +41,9 @@ class SimHandler(BaseHTTPRequestHandler):
             lean_angle = float(data.get('leanAngle', 0))
             reaction_time = min(5.0, max(0.0, float(data.get('reactionTime', 1))))
             dog_distance = min(200.0, max(1.0, float(data.get('dogDistance', 25))))
+            dog_enabled = data.get('dogEnabled', True) is not False
+            requested_lift = data.get('rearWheelLiftRequested', False) is True
+            lift_requested = requested_lift and not abs_enabled
 
             from math import cos, radians
             g = 9.81
@@ -60,8 +63,9 @@ class SimHandler(BaseHTTPRequestHandler):
                     transfer = m * max(0.0, -acceleration) * cg_height / 1.4
                     front_load = m * g / 2.0 + transfer
                     rear_load = max(0.0, m * g / 2.0 - transfer)
-                    actual_front = min(requested_front, (1.0 if abs_enabled else 0.7) * mu * grip * front_load)
-                    actual_rear = min(requested_rear, (1.0 if abs_enabled else 0.7) * mu * grip * rear_load)
+                    lift_force = m * g * 1.4 / (2.0 * cg_height)
+                    actual_front = min(mu * grip * front_load, max(requested_front, lift_force)) if lift_requested else min(requested_front, (1.0 if abs_enabled else 0.7) * mu * grip * front_load)
+                    actual_rear = 0.0 if lift_requested else min(requested_rear, (1.0 if abs_enabled else 0.7) * mu * grip * rear_load)
                     acceleration = -(actual_front + actual_rear) / m
                 position += max(0.0, velocity * 0.01 + 0.5 * acceleration * 0.0001)
                 velocity = max(0.0, velocity + acceleration * 0.01)
@@ -72,7 +76,7 @@ class SimHandler(BaseHTTPRequestHandler):
             decel = v0 / stopping_time
             reaction_distance = v0 * reaction_time
             braking_deceleration = (v0 * v0) / (2.0 * position) if position > 0 else 0.0
-            dog_hit = dog_distance <= position + reaction_distance
+            dog_hit = dog_enabled and dog_distance <= position + reaction_distance
             distance_after_reaction = max(0.0, dog_distance - reaction_distance)
             impact_speed_kmh = (max(0.0, v0 * v0 - 2.0 * braking_deceleration * distance_after_reaction) ** 0.5) * 3.6 if dog_hit else 0.0
 
@@ -83,8 +87,11 @@ class SimHandler(BaseHTTPRequestHandler):
                 'reactionTime': reaction_time,
                 'reactionDistance': reaction_distance,
                 'dogDistance': dog_distance,
+                'dogEnabled': dog_enabled,
                 'dogHit': dog_hit,
                 'impactSpeedKmh': impact_speed_kmh,
+                'rearWheelLiftRequested': lift_requested,
+                'rearWheelLiftPreventedByAbs': requested_lift and abs_enabled,
                 'deceleration': -decel,
                 'actualBrakeForce': actualF,
                 'frontBrakeForce': actual_front,

@@ -68,9 +68,13 @@ int main()
         double frontBrakeBias = r["frontBrakeBias"].d();
         double reactionTime = r["reactionTime"].d();
         double dogDistance = r["dogDistance"].d();
+        bool dogEnabled = r["dogEnabled"].b();
+        bool rearWheelLiftRequested = r["rearWheelLiftRequested"].b();
         bool absEnabled = r["absEnabled"].b();
         reactionTime = std::clamp(reactionTime, 0.0, 5.0);
         dogDistance = std::clamp(dogDistance, 1.0, 200.0);
+        const bool liftPreventedByAbs = rearWheelLiftRequested && absEnabled;
+        if (absEnabled) rearWheelLiftRequested = false;
 
         const double g = 9.81;
         double v0 = speed_kmh / 3.6;
@@ -82,7 +86,7 @@ int main()
         double acceleration = 0.0;
         BrakingForces forces{mass * g / 2.0, mass * g / 2.0, 0.0, 0.0, false, false};
         while (velocity > 0.0 && stoppingTime < 300.0) {
-            forces = calculateBrakingForces(mass, brakeForce, friction, leanGrip, frontBrakeBias, absEnabled, acceleration, cgHeight, 1.4);
+            forces = calculateBrakingForces(mass, brakeForce, friction, leanGrip, frontBrakeBias, absEnabled, rearWheelLiftRequested, acceleration, cgHeight, 1.4);
             const double actualBrakeForce = forces.frontForce + forces.rearForce;
             acceleration = -actualBrakeForce / mass;
             stoppingDistance += std::max(0.0, velocity * 0.01 + 0.5 * acceleration * 0.0001);
@@ -100,13 +104,16 @@ int main()
         res["reactionDistance"] = reactionDistance;
         res["deceleration"] = -(v0 / stoppingTime);
         const double brakingDeceleration = stoppingDistance > 0.0 ? (v0 * v0) / (2.0 * stoppingDistance) : 0.0;
-        const bool dogHit = dogDistance <= stoppingDistance + reactionDistance;
+        const bool dogHit = dogEnabled && dogDistance <= stoppingDistance + reactionDistance;
         const double distanceAfterReaction = std::max(0.0, dogDistance - reactionDistance);
         res["dogDistance"] = dogDistance;
+        res["dogEnabled"] = dogEnabled;
         res["dogHit"] = dogHit;
         res["impactSpeedKmh"] = dogHit
             ? std::sqrt(std::max(0.0, v0 * v0 - 2.0 * brakingDeceleration * distanceAfterReaction)) * 3.6
             : 0.0;
+        res["rearWheelLiftRequested"] = rearWheelLiftRequested;
+        res["rearWheelLiftPreventedByAbs"] = liftPreventedByAbs;
         res["actualBrakeForce"] = actualBrakeForce;
         res["frontBrakeForce"] = forces.frontForce;
         res["rearBrakeForce"] = forces.rearForce;

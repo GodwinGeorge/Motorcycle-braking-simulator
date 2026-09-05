@@ -19,9 +19,10 @@ Open the live demo:
 2. Enter the motorcycle mass, initial speed, road friction, and brake force manually. Presets are shortcuts and can be edited afterward.
 3. Set the reaction time used to calculate the distance traveled before braking.
 4. Set the dog distance to place the dog obstacle on the road.
-5. Select Run Simulation.
-6. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, dog state, and velocity graph update.
-7. Review reaction distance, braking distance, total stopping distance, and the physical brake results.
+5. Choose whether to request a rear-wheel lift. ABS prevents the request; manual braking only lifts the wheel when the front force reaches the physical threshold.
+6. Select Run Simulation.
+7. Watch the motorcycle, wheel motion, brake light, telemetry, stopping marks, dog state, and velocity graph update.
+8. Review reaction distance, braking distance, total stopping distance, and the physical brake results.
 
 The local GUI sends simulation requests to the local C++ API at `http://localhost:18080/simulate`. Start the `vehicle_simulator` executable before running the frontend. The hosted GUI uses the deployed API when available and falls back to the browser model, including sensor telemetry, when the API is unavailable.
 
@@ -111,6 +112,16 @@ The dog is placed at the user-selected distance. The model compares that distanc
 $$dogHit = dogDistance \leq d_{total}$$
 
 If the dog is reached, the response reports `dogHit: true` and estimates the remaining impact speed after the reaction phase and braking distance traveled. The UI marks the dog as dead, turns on the motorcycle hazard lights, and displays a clear warning. If the dog is beyond the total stopping distance, it remains safe and no collision warning is shown. This is an educational obstacle check, not a safety system.
+
+Track mode sets `dogEnabled: false`, so no dog is displayed or included in the collision calculation.
+
+Rear-wheel lift
+
+The `rearWheelLiftRequested` input represents a rider request to unload the rear wheel. With ABS enabled, the request is rejected and `rearWheelLiftPreventedByAbs` is true. With ABS disabled, rear braking is removed and the front force is tested against the lift threshold:
+
+$$a_{lift}=\frac{gL}{2h}$$
+
+The rear wheel lifts only when the transferred rear load reaches zero. The animation uses the calculated `rearWheelLift` result; it never shows a lift when physics did not produce one.
 
 The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
 
@@ -271,6 +282,8 @@ Request
   "frontBrakeBias": 70,
   "reactionTime": 1,
   "dogDistance": 25,
+  "dogEnabled": true,
+  "rearWheelLiftRequested": false,
   "absEnabled": true
 }
 
@@ -285,6 +298,9 @@ Response (core fields)
   "dogDistance": 25,
   "dogHit": true,
   "impactSpeedKmh": 76.9,
+  "dogEnabled": true,
+  "rearWheelLiftRequested": false,
+  "rearWheelLiftPreventedByAbs": false,
   "reactionDistance": 22.22,
   "totalStoppingDistance": 53.68,
   "frontBrakeForce": 1340.9,

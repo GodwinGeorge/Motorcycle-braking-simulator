@@ -29,8 +29,8 @@ async function handleRequest(request) {
     return jsonResponse({
       status: 'ok',
       service: 'vehicle-braking-worker',
-      apiVersion: '2',
-      capabilities: ['braking-model', 'sensor-telemetry']
+      apiVersion: '3',
+      capabilities: ['braking-model', 'sensor-telemetry', 'dog-obstacle', 'rear-wheel-lift']
     })
   }
 
@@ -57,8 +57,11 @@ async function handleRequest(request) {
   const leanAngle = Math.min(Math.max(numberOr(data.leanAngle, 0), 0), 60)
   const frontBrakeBias = Math.min(Math.max(numberOr(data.frontBrakeBias, 70), 0), 100)
   const reactionTime = Math.min(Math.max(numberOr(data.reactionTime, 1), 0), 5)
-  const dogDistance = Math.min(Math.max(numberOr(data.dogDistance, 25), 1), 200)
+    const dogDistance = Math.min(Math.max(numberOr(data.dogDistance, 25), 1), 200)
+    const dogEnabled = data.dogEnabled !== false
+    const requestedRearWheelLift = data.rearWheelLiftRequested === true
   const absEnabled = data.absEnabled !== false
+    const rearWheelLiftRequested = requestedRearWheelLift && !absEnabled
   const referenceRadius = 0.31
   const referenceCgHeight = 0.62
   const cgHeight = referenceCgHeight + (wheelRadius - referenceRadius)
@@ -115,8 +118,13 @@ async function handleRequest(request) {
       rearLoad = Math.max(0, mass * g / 2 - transfer)
       const frontLimit = friction * leanGrip * frontLoad
       const rearLimit = friction * leanGrip * rearLoad
-      actualFrontForce = Math.min(requestedFrontForce, absEnabled ? frontLimit : frontLimit * 0.7)
-      actualRearForce = Math.min(requestedRearForce, absEnabled ? rearLimit : rearLimit * 0.7)
+        const liftForce = mass * g * 1.4 / (2 * cgHeight)
+        actualFrontForce = rearWheelLiftRequested
+          ? Math.min(frontLimit, Math.max(requestedFrontForce, liftForce))
+          : Math.min(requestedFrontForce, absEnabled ? frontLimit : frontLimit * 0.7)
+        actualRearForce = rearWheelLiftRequested
+          ? 0
+          : Math.min(requestedRearForce, absEnabled ? rearLimit : rearLimit * 0.7)
       forceAcceleration = -(actualFrontForce + actualRearForce) / mass
     }
     absActive = absActive || (absEnabled && (actualFrontForce < requestedFrontForce || actualRearForce < requestedRearForce))
@@ -129,7 +137,7 @@ async function handleRequest(request) {
     previousAcceleration = acceleration
     trajectory.push({ time, velocity, position, acceleration })
 
-    const rearWheelLift = rearLoad <= 1e-6
+    const rearWheelLift = rearLoad <= 1e-6 && rearWheelLiftRequested
     const finalFrontLimit = friction * leanGrip * frontLoad
     const finalRearLimit = friction * leanGrip * rearLoad
     const frontSlip = requestedFrontForce > finalFrontLimit ? clamp((requestedFrontForce - finalFrontLimit) / requestedFrontForce, 0, 0.25) : 0
@@ -169,7 +177,7 @@ async function handleRequest(request) {
   const rearWheelLift = mass * g / 2 - mass * Math.max(0, -previousAcceleration) * cgHeight / 1.4 <= 1e-6
   const deceleration = time > 0 ? v0 / time : 0
   const averageDeceleration = position > 0 ? (v0 * v0) / (2 * position) : 0
-  const dogHit = dogDistance <= position + reactionDistance
+  const dogHit = dogEnabled && dogDistance <= position + reactionDistance
   const distanceAfterReaction = Math.max(0, dogDistance - reactionDistance)
   const impactSpeedKmh = dogHit
     ? Math.sqrt(Math.max(0, v0 * v0 - 2 * averageDeceleration * distanceAfterReaction)) * 3.6
@@ -183,8 +191,11 @@ async function handleRequest(request) {
     reactionTime,
     reactionDistance,
     dogDistance,
+    dogEnabled,
     dogHit,
     impactSpeedKmh,
+    rearWheelLiftRequested,
+    rearWheelLiftPreventedByAbs: requestedRearWheelLift && absEnabled,
     deceleration: -averageDeceleration,
     maxDeceleration: averageDeceleration,
     actualBrakeForce: actualBrakeForce,

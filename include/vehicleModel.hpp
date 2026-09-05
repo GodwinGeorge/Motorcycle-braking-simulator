@@ -19,6 +19,7 @@ inline BrakingForces calculateBrakingForces(
     double leanGrip,
     double frontBrakeBias,
     bool absEnabled,
+    bool rearWheelLiftRequested,
     double acceleration,
     double cgHeight,
     double wheelbase
@@ -39,15 +40,21 @@ inline BrakingForces calculateBrakingForces(
         rearLoad = std::max(0.0, 0.5 * mass * GRAVITY - transfer);
         const double frontLimit = friction * leanGrip * frontLoad;
         const double rearLimit = friction * leanGrip * rearLoad;
-        const double nextFront = std::min(requestedFront, absEnabled ? frontLimit : frontLimit * 0.7);
-        const double nextRear = std::min(requestedRear, absEnabled ? rearLimit : rearLimit * 0.7);
+        const double liftForce = mass * GRAVITY * wheelbase / (2.0 * cgHeight);
+        const bool liftAttempt = rearWheelLiftRequested && !absEnabled;
+        const double nextFront = liftAttempt
+            ? std::min(frontLimit, std::max(requestedFront, liftForce))
+            : std::min(requestedFront, absEnabled ? frontLimit : frontLimit * 0.7);
+        const double nextRear = liftAttempt
+            ? 0.0
+            : std::min(requestedRear, absEnabled ? rearLimit : rearLimit * 0.7);
         absActive = absActive || (absEnabled && (nextFront < requestedFront || nextRear < requestedRear));
         frontForce = nextFront;
         rearForce = nextRear;
         acceleration = -(frontForce + rearForce) / mass;
     }
 
-    return { frontLoad, rearLoad, frontForce, rearForce, rearLoad <= 1e-6, absActive };
+    return { frontLoad, rearLoad, frontForce, rearForce, rearLoad <= 1e-6 && rearWheelLiftRequested && !absEnabled, absActive };
 }
 
 class VehicleModel {
