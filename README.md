@@ -110,7 +110,7 @@ The dog is placed at the user-selected distance. The model compares that distanc
 
 $$dogHit = dogDistance \leq d_{total}$$
 
-If the dog is reached, the response reports `dogHit: true` and estimates the remaining impact speed after the reaction phase and braking distance traveled. The UI marks the dog as hit, turns on the motorcycle hazard lights, and displays a clear warning. If the dog is beyond the total stopping distance, it remains safe and no collision warning is shown. This is an educational obstacle check, not a safety system.
+If the dog is reached, the response reports `dogHit: true` and estimates the remaining impact speed after the reaction phase and braking distance traveled. The UI marks the dog as dead, turns on the motorcycle hazard lights, and displays a clear warning. If the dog is beyond the total stopping distance, it remains safe and no collision warning is shown. This is an educational obstacle check, not a safety system.
 
 The displayed stopping distance and time come from the integrated trajectory, not from assuming constant acceleration. The fall check uses the modelled centre-of-mass height:
 

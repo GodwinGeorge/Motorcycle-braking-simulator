@@ -198,7 +198,7 @@ function renderSimulation(json, initialSpeedKmh, sensorRate, payload) {
             ? "Dual-channel ABS is modulating the front/rear force limits"
             : "Simulation complete · no ABS modulation required");
     document.getElementById("resultExplanation").textContent = json.dogHit
-        ? `You will hit the dog at ${json.dogDistance.toFixed(1)} m with approximately ${json.impactSpeedKmh.toFixed(1)} km/h remaining. Hazard lights are on and the dog is marked as hit.`
+        ? `You will hit the dog at ${json.dogDistance.toFixed(1)} m with approximately ${json.impactSpeedKmh.toFixed(1)} km/h remaining. Hazard lights are on and the dog has died.`
         : `The dog is ${json.dogDistance.toFixed(1)} m away, beyond the ${json.totalStoppingDistance.toFixed(1)} m total stopping distance. Axle load transfers forward during braking, so the rear limit is ${json.rearWheelLift ? "exceeded and the rear wheel lifts" : "still positive"}.`;
     // The Cloudflare Worker returns recorded samples. Other compatible APIs only
     // return the physics result, so generate a matching local telemetry stream.
@@ -346,8 +346,8 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
     motorcycle.classList.remove("is-fallen");
     motorcycle.classList.toggle("is-rear-lift", Boolean(rearWheelLift));
     motorcycle.classList.toggle("is-hazard", Boolean(dogHit));
-    dog.classList.remove("is-hit", "is-safe");
-    dog.classList.add(dogHit ? "is-hit" : "is-safe");
+    dog.classList.remove("is-hit", "is-dead", "is-safe");
+    dog.classList.add(dogHit ? "is-dead" : "is-safe");
     motorcycle.classList.add("is-braking");
     motorcycle.classList.add("is-moving");
     brakeImpressions.classList.remove("is-visible");
