@@ -348,6 +348,8 @@ function animateMotorcycle(initialSpeed, deceleration, stoppingTime, stoppingDis
     motorcycle.classList.toggle("is-hazard", Boolean(dogHit));
     dog.classList.remove("is-hit", "is-dead", "is-safe");
     dog.classList.add(dogHit ? "is-dead" : "is-safe");
+    dog.classList.add("is-jumping");
+    window.setTimeout(() => dog.classList.remove("is-jumping"), 1150);
     motorcycle.classList.add("is-braking");
     motorcycle.classList.add("is-moving");
     brakeImpressions.classList.remove("is-visible");

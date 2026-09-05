@@ -1,6 +1,6 @@
 The Study Lab - Motorcycle Braking Simulator
 
-A web-based motorcycle braking study that explores braking force, deceleration, stopping time, stopping distance, sensor telemetry, load transfer, lean angle, and a simplified dual-channel ABS controller.
+A web-based motorcycle braking study that explores braking force, deceleration, stopping time, stopping distance, reaction time, sensor telemetry, load transfer, lean angle, a dog obstacle, and a simplified dual-channel ABS controller.
 
 
 
@@ -16,7 +16,7 @@ https://godwingeorge.github.io/Motorcycle-braking-simulator/
 
 Open the live demo:
 1. Choose a road profile: City, Wet, or Track.
-2. Adjust motorcycle mass, initial speed, road friction, and brake force.
+2. Enter the motorcycle mass, initial speed, road friction, and brake force manually. Presets are shortcuts and can be edited afterward.
 3. Set the reaction time used to calculate the distance traveled before braking.
 4. Set the dog distance to place the dog obstacle on the road.
 5. Select Run Simulation.
@@ -292,9 +292,7 @@ Response (core fields)
   "rearWheelLift": false,
   "absActive": true,
   "leanLimit": 45.0,
-  "fallen": false,
-  "frontBrakeForce": 973.15,
-  "rearBrakeForce": 596.45
+  "fallen": false
 }
 
 The Cloudflare response includes `sensors` and `trajectory` arrays. The C++ response uses `sensors` and `data`. These recorded samples drive browser playback and the velocity graph.
@@ -318,7 +316,7 @@ Wheel radius also changes braking inertia. The model assumes the two wheels toge
 
 $$I_{ref}=2\left(\frac{1}{2}(0.02m)(0.31)^2\right), \qquad m_{eff}=m+\frac{2I_{ref}}{r^2}$$
 
-The braking acceleration uses $a=-(F_{front}+F_{rear})/m_{eff}$. This is a simplified wheel-inertia model; real wheel, tyre, and drivetrain inertia should be measured for a production model.
+The current unified braking acceleration uses $a=-(F_{front}+F_{rear})/m$. The reported effective-mass value is retained as a reference telemetry field; the shared force and load-transfer calculation uses vehicle mass consistently across the C++, Worker, and browser models.
 
 ---
 
